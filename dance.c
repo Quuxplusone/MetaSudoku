@@ -7,12 +7,21 @@
 
 #define USE_HEURISTIC 1
 
+static char s_buffer[1000000];
+static size_t s_index = 0;
+
 void *Malloc(size_t n)
 {
-    void *p = malloc(n);
-    if (p != NULL) return p;
+    n = (n + 15) & ~15;
+    s_index += n;
+    if (s_index <= sizeof s_buffer) return &s_buffer[s_index - n];
     printf("Out of memory in Malloc(%lu)!\n", (long unsigned)n);
     exit(EXIT_FAILURE);
+}
+
+void Free(void *p)
+{
+    // Do nothing.
 }
 
 int dance_init(struct dance_matrix *m,
@@ -112,16 +121,7 @@ int dance_addrow(struct dance_matrix *m, size_t nentries, size_t *entries)
 
 int dance_free(struct dance_matrix *m)
 {
-    size_t i;
-    for (i=0; i < m->ncolumns; ++i) {
-        struct data_object *p = m->columns[i].data.down;
-        while (p != &m->columns[i].data) {
-            struct data_object *q = p->down;
-            free(p);
-            p = q;
-        }
-    }
-    free(m->columns);
+    s_index = 0;
     return 0;
 }
 
@@ -130,7 +130,7 @@ int dance_solve(struct dance_matrix *m,
 {
     struct data_object **solution = Malloc(m->ncolumns * sizeof *solution);
     dance_result result = dancing_search(0, m, f, solution);
-    free(solution);
+    Free(solution);
     return result.count;
 }
 

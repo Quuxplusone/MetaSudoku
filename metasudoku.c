@@ -28,26 +28,22 @@ int count_solutions_with_odometer(const struct OdometerWheel *odometer, int num_
 {
     if (wheel == num_wheels) {
         if (next_unseen_value >= 9) {
-#if 0
-            printf("I'm trying to fill in this sudoku grid...\n");
-            print_sudoku_grid((int(*)[9])flatgrid);
-#endif
             static size_t counter = 0;
             ++counter;
             if ((counter & 0xFFF) == 0) {
                 printf("\rmeta %zu", counter);
                 fflush(stdout);
             }
-            int tempgrid[9][9];
-            memcpy(tempgrid, flatgrid, 81 * sizeof(int));
-            int solution_count = count_sudoku_solutions(tempgrid);
+#if 1
+            int solution_count = count_sudoku_solutions((const int(*)[9])flatgrid);
             if (solution_count == 1) {
                 printf("This sudoku grid was a meta solution!\n");
-                print_sudoku_grid((int(*)[9])flatgrid);
+                print_sudoku_grid((const int(*)[9])flatgrid);
                 printf("The unique solution to the sudoku grid above is:\n");
-                print_unique_sudoku_solution((int(*)[9])flatgrid);
+                print_unique_sudoku_solution((const int(*)[9])flatgrid);
                 return 1;
             }
+#endif
         }
         return 0;
     }
@@ -70,9 +66,10 @@ int count_solutions_with_odometer(const struct OdometerWheel *odometer, int num_
     return result;
 }
 
-bool metasudoku_has_exactly_one_solution(int grid[9][9])
+bool metasudoku_has_exactly_one_solution(const int grid[9][9])
 {
-    int *flatgrid = (int *)grid;
+    int flatgrid[81];
+    memcpy(flatgrid, grid, sizeof flatgrid);
 
     struct OdometerWheel odometer[81];
     int num_wheels = 0;
@@ -100,7 +97,7 @@ bool metasudoku_has_exactly_one_solution(int grid[9][9])
 }
 
 
-int sudoku_example_one[9][9] = {
+const int sudoku_example_one[9][9] = {
     {4,8,0,9,2,0,3,0,0},
     {9,5,0,0,8,0,0,0,4},
     {0,0,2,5,0,0,0,0,0},
@@ -112,7 +109,7 @@ int sudoku_example_one[9][9] = {
     {0,0,5,0,1,9,0,4,3},
 };
 
-int sudoku_example_17[9][9] = {
+const int sudoku_example_17[9][9] = {
     {0,0,0,8,0,1,0,0,0},
     {0,0,0,0,0,0,0,4,3},
     {5,0,0,0,0,0,0,0,0},
