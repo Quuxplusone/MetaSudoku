@@ -19,11 +19,6 @@ void *Malloc(size_t n)
     exit(EXIT_FAILURE);
 }
 
-void Free(void *p)
-{
-    // Do nothing.
-}
-
 int dance_init(struct dance_matrix *m,
         size_t rows, size_t cols, const int *data)
 {
@@ -95,8 +90,9 @@ int dance_addrow(struct dance_matrix *m, size_t nentries, size_t *entries)
     struct data_object *h = NULL;
     size_t i;
 
+    struct data_object *news = Malloc(nentries * sizeof *news);
     for (i=0; i < nentries; ++i) {
-        struct data_object *new = Malloc(sizeof *new);
+        struct data_object *new = &news[i];
         new->column = &m->columns[entries[i]];
         new->down = &m->columns[entries[i]].data;
         new->up = new->down->up;
@@ -130,7 +126,6 @@ int dance_solve(struct dance_matrix *m,
 {
     struct data_object **solution = Malloc(m->ncolumns * sizeof *solution);
     dance_result result = dancing_search(0, m, f, solution);
-    Free(solution);
     return result.count;
 }
 
