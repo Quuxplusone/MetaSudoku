@@ -18,34 +18,6 @@ void *Malloc(size_t n)
 int dance_init(struct dance_matrix *m,
         size_t rows, size_t cols, const int *data)
 {
-    char **names = Malloc(cols * sizeof *names);
-    size_t i;
-    int rc;
-
-    if (cols < 26) {
-        const char *alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        for (i=0; i < cols; ++i) {
-            names[i] = Malloc(2);
-            sprintf(names[i], "%c", alpha[i]);
-        }
-    }
-    else {
-        for (i=0; i < cols; ++i) {
-            names[i] = Malloc(30);
-            sprintf(names[i], "%lu", (long unsigned)i);
-        }
-    }
-
-    rc = dance_init_named(m, rows, cols, data, names);
-    for (i=0; i < cols; ++i)
-      free(names[i]);
-    free(names);
-    return rc;
-}
-
-int dance_init_named(struct dance_matrix *m,
-        size_t rows, size_t cols, const int *data, char **names)
-{
     size_t i, j;
 
     m->nrows = rows;
@@ -55,8 +27,7 @@ int dance_init_named(struct dance_matrix *m,
     m->head.data.left = &m->columns[m->ncolumns-1].data;
 
     for (i=0; i < m->ncolumns; ++i) {
-        m->columns[i].name = Malloc(strlen(names[i])+1);
-        strcpy(m->columns[i].name, names[i]);
+        m->columns[i].name = i;
         m->columns[i].size = 0;
         m->columns[i].data.up = &m->columns[i].data;
         m->columns[i].data.down = &m->columns[i].data;
@@ -139,25 +110,6 @@ int dance_addrow(struct dance_matrix *m, size_t nentries, size_t *entries)
     return nentries;
 }
 
-int dance_addrow_named(struct dance_matrix *m, size_t nentries, char **names)
-{
-    size_t *entries = Malloc(nentries * sizeof *entries);
-    size_t i, j;
-    int rc;
-
-    for (i=0; i < nentries; ++i) {
-        for (j=0; j < m->ncolumns; ++j) {
-            if (strcmp(m->columns[j].name, names[i]) == 0)
-              break;
-        }
-        if (j == m->ncolumns) return -1;
-        entries[i] = j;
-    }
-    rc = dance_addrow(m, nentries, entries);
-    free(entries);
-    return rc;
-}
-
 int dance_free(struct dance_matrix *m)
 {
     size_t i;
@@ -168,47 +120,29 @@ int dance_free(struct dance_matrix *m)
             free(p);
             p = q;
         }
-        free(m->columns[i].name);
     }
     free(m->columns);
     return 0;
 }
 
-int dance_print(struct dance_matrix *m)
-{
-    size_t i;
-    struct data_object *p;
-
-    for (i=0; i < m->ncolumns; ++i) {
-        printf("Column %s has %lu elements:\n", m->columns[i].name,
-            (long unsigned)m->columns[i].size);
-        p = m->columns[i].data.down;
-        while (p != &m->columns[i].data) {
-            printf("  X");
-            p = p->down;
-        }
-        printf("\n");
-    }
-
-    return 0;
-}
-
 int dance_solve(struct dance_matrix *m,
-                int (*f)(size_t, struct data_object **))
+                dance_result (*f)(size_t, struct data_object **))
 {
     struct data_object **solution = Malloc(m->ncolumns * sizeof *solution);
-    int ns = dancing_search(0, m, f, solution);
+    dance_result result = dancing_search(0, m, f, solution);
     free(solution);
-    return ns;
+    return result.count;
 }
 
-int dancing_search(size_t k, struct dance_matrix *m,
-    int (*f)(size_t, struct data_object **),
+dance_result dancing_search(
+    size_t k,
+    struct dance_matrix *m,
+    dance_result (*f)(size_t, struct data_object **),
     struct data_object **solution)
 {
     struct column_object *c = NULL;
     struct data_object *r, *j;
-    int count = 0;
+    dance_result result = {0, false};
 
     if (m->head.data.right == &m->head.data) {
         return f(k, solution);
@@ -238,17 +172,22 @@ int dancing_search(size_t k, struct dance_matrix *m,
         for (j = r->right; j != r; j = j->right) {
             dancing_cover(j->column);
         }
-        count += dancing_search(k+1, m, f, solution);
+        dance_result subresult = dancing_search(k+1, m, f, solution);
+        result.count += subresult.count;
+        result.short_circuit = subresult.short_circuit;
         r = solution[k];
         c = r->column;
         for (j = r->left; j != r; j = j->left) {
             dancing_uncover(j->column);
         }
+        if (result.short_circuit) {
+            break;
+        }
     }
 
     /* Uncover column |c| and return. */
     dancing_uncover(c);
-    return count;
+    return result;
 }
 
 void dancing_cover(struct column_object *c)

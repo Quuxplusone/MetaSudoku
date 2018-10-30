@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct dance_result {
+    int count;
+    int short_circuit;
+} dance_result;
+
 struct data_object {
     struct data_object *up, *down, *left, *right;
     struct column_object *column;
@@ -13,7 +18,7 @@ struct data_object {
 struct column_object {
     struct data_object data; /* must be the first field */
     size_t size;
-    char *name;
+    int name;
 };
 
 struct dance_matrix {
@@ -24,18 +29,15 @@ struct dance_matrix {
 
 int dance_init(struct dance_matrix *m,
         size_t rows, size_t cols, const int *data);
-int dance_init_named(struct dance_matrix *m,
-        size_t rows, size_t cols, const int *data, char **names);
 int dance_addrow(struct dance_matrix *m,
         size_t nentries, size_t *entries);
-int dance_addrow_named(struct dance_matrix *m,
-        size_t nentries, char **names);
 int dance_free(struct dance_matrix *m);
 int dance_print(struct dance_matrix *m);
 int dance_solve(struct dance_matrix *m,
-                int (*f)(size_t, struct data_object **));
- int dancing_search(size_t k, struct dance_matrix *m,
-                    int (*f)(size_t, struct data_object **),
-                    struct data_object **solution);
+        dance_result (*f)(size_t, struct data_object **));
+ dance_result dancing_search(
+        size_t k, struct dance_matrix *m,
+        dance_result (*f)(size_t, struct data_object **),
+        struct data_object **solution);
  void dancing_cover(struct column_object *c);
  void dancing_uncover(struct column_object *c);

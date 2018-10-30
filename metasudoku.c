@@ -6,134 +6,97 @@
 #include "dance.h"
 #include "sudoku.h"
 
-bool is_plausible_assignment(int grid[9][9]) {
-    // It must introduce the digits in order.
-    int looking_for = 1;
-    for (int j=0; j < 9; ++j) {
-        for (int i=0; i < 9; ++i) {
-            int cell = grid[j][i];
-            if (cell == 0) continue;
-            if (cell > looking_for) return false;
-            if (cell == looking_for) {
-                ++looking_for;
-                if (looking_for == 9) return true;
-            }
+struct OdometerWheel {
+    int i;  // refers to grid[i/9][i%9]
+    int num_conflicts;
+    const int *conflicts[24];
+};
+
+bool has_prior_conflict(const struct OdometerWheel *odo, int value)
+{
+    for (int i=0; i < odo->num_conflicts; ++i) {
+        if (*odo->conflicts[i] == value) {
+            return true;
         }
     }
-    // It must contain at least 8 digits.
     return false;
 }
 
-int count_metasudoku_result(size_t n, struct data_object **sol)
+int count_solutions_with_odometer(const struct OdometerWheel *odometer, int num_wheels,
+                                  int flatgrid[81],
+                                  int wheel, int next_unseen_value)
 {
-    int grid[9][9] = {};
-    size_t i, j;
-
-    for (i=0; i < n; ++i) {
-        int constraint[5];
-        int row, col, val;
-        row = col = val = 0;  /* shut up "unused" warning from compiler */
-        constraint[0] = atoi(sol[i]->column->name);
-        constraint[1] = atoi(sol[i]->right->column->name);
-        constraint[2] = atoi(sol[i]->right->right->column->name);
-        constraint[3] = atoi(sol[i]->right->right->right->column->name);
-        constraint[4] = atoi(sol[i]->right->right->right->right->column->name);
-        if (constraint[0] == constraint[2] || constraint[0] == constraint[3]) {
-            continue;
-        }
-        for (j=0; j < 5; ++j) {
-            if (constraint[j] < 81) {
-                row = constraint[j] / 9;
-                val = constraint[j] % 9 + 1;
+    if (wheel == num_wheels) {
+        if (next_unseen_value >= 9) {
+#if 0
+            printf("I'm trying to fill in this sudoku grid...\n");
+            print_sudoku_grid((int(*)[9])flatgrid);
+#endif
+            static size_t counter = 0;
+            ++counter;
+            if ((counter & 0xFFF) == 0) {
+                printf("\rmeta %zu", counter);
+                fflush(stdout);
             }
-            else if (constraint[j] < 162) {
-                col = (constraint[j]-81) / 9;
+            int tempgrid[9][9];
+            memcpy(tempgrid, flatgrid, 81 * sizeof(int));
+            int solution_count = count_sudoku_solutions(tempgrid);
+            if (solution_count == 1) {
+                printf("This sudoku grid was a meta solution!\n");
+                print_sudoku_grid((int(*)[9])flatgrid);
+                printf("The unique solution to the sudoku grid above is:\n");
+                print_unique_sudoku_solution((int(*)[9])flatgrid);
+                return 1;
             }
         }
-        grid[row][col] = val;
-    }
-
-    static int cc = 0;
-    printf("%d\r", ++cc);
-    if (!is_plausible_assignment(grid)) {
         return 0;
     }
 
-    printf("Metasolution:\n");
-    for (j=0; j < 9; ++j) {
-        printf("  ");
-        for (i=0; i < 9; ++i)
-          printf(" %d", grid[j][i]);
-        printf("\n");
+    const struct OdometerWheel *odo = &odometer[wheel];
+    int result = 0;
+    for (int value = 1; value < next_unseen_value; ++value) {
+        if (has_prior_conflict(odo, value)) continue;
+        flatgrid[odo->i] = value;
+        result += count_solutions_with_odometer(odometer, num_wheels, flatgrid, wheel+1, next_unseen_value);
+        if (result >= 2) {
+            printf("short-circuiting with result %d!\n", result);
+            return result;  // short-circuit
+        }
     }
-
-    return 1;
+    if (next_unseen_value <= 9) {
+        flatgrid[odo->i] = next_unseen_value;
+        result += count_solutions_with_odometer(odometer, num_wheels, flatgrid, wheel+1, next_unseen_value+1);
+    }
+    return result;
 }
 
 bool metasudoku_has_exactly_one_solution(int grid[9][9])
 {
-    struct dance_matrix mat;
-    int ns;
-    size_t constraint[5];
-    int rows = 0;
-    int cols = 324;
-    /*
-       1 in the first row; 2 in the first row;... 9 in the first row;
-       1 in the second row;... 9 in the ninth row;
-       1 in the first column; 2 in the first column;...
-       1 in the first box; 2 in the first box;... 9 in the ninth box;
-       Something in (1,1); Something in (1,2);... Something in (9,9)
-    */
-    int i, j, k;
+    int *flatgrid = (int *)grid;
 
-    dance_init(&mat, 0, cols, NULL);
-    /*
-       Input the grid, square by square. Each possibility for
-       a single number in a single square gives us a row of the
-       matrix with exactly four entries in it.
-    */
-    int maximum_value = 0;
-    for (j=0; j < 9; ++j) {
-        for (i=0; i < 9; ++i) {
-            int box = (j/3)*3 + (i/3);
-            if (grid[j][i] != 0) {
-                if (maximum_value < 9) maximum_value += 1;
-                for (k = 0; k < maximum_value; ++k) {
-                    constraint[0] = 9*j + k;
-                    constraint[1] = 81 + 9*i + k;
-                    constraint[2] = 162 + 9*box + k;
-                    constraint[3] = 243 + (9*j+i);
-                    dance_addrow(&mat, 4, constraint); ++rows;
-                }
+    struct OdometerWheel odometer[81];
+    int num_wheels = 0;
+
+    for (int i = 0; i < 81; ++i) {
+        if (flatgrid[i] == 0) continue;
+        struct OdometerWheel *odo = &odometer[num_wheels++];
+        odo->i = i;
+        odo->num_conflicts = 0;
+        for (int pc = 0; pc < i; ++pc) {
+            if (flatgrid[pc] == 0) continue;
+            bool same_row = (pc / 9 == i / 9);
+            bool same_col = (pc % 9 == i % 9);
+            bool same_box = ((pc / 9) / 3 == (i / 9) / 3) && ((pc % 9) / 3 == (i % 9) / 3);
+            if (same_row || same_col || same_box) {
+                odo->conflicts[odo->num_conflicts++] = &flatgrid[pc];
             }
         }
     }
 
-    /* Add the a-la-carte rows. Nine per row, per column, and per box. */
-    for (i=0; i < 9; ++i) {
-        for (k=0; k < 9; ++k) {
-            constraint[0] = 9*i + k;  // row
-            dance_addrow(&mat, 1, constraint); ++rows;
-            constraint[0] = 81 + 9*i + k;  // column
-            dance_addrow(&mat, 1, constraint); ++rows;
-            constraint[0] = 162 + 9*i + k;  // box
-            dance_addrow(&mat, 1, constraint); ++rows;
-        }
-    }
-    /* Add the a-la-carte rows. One per grid cell. */
-    for (j=0; j < 9; ++j) {
-        for (i=0; i < 9; ++i) {
-            if (grid[j][i] == 0) {
-                constraint[0] = 243 + (9*j+i);
-                dance_addrow(&mat, 1, constraint); ++rows;
-            }
-        }
-    }
-
-    printf("solving with %d rows and %d cols...\n", rows, cols);
-    ns = dance_solve(&mat, count_metasudoku_result);
-    dance_free(&mat);
-    return (ns == 1);
+    // Now we've built our odometer.
+    int num_solutions = count_solutions_with_odometer(odometer, num_wheels, flatgrid, 0, 1);
+    printf("num_solutions is %d\n", num_solutions);
+    return num_solutions == 1;
 }
 
 
@@ -163,7 +126,7 @@ int sudoku_example_17[9][9] = {
 
 int main()
 {
-    bool r = sudoku_has_exactly_one_solution(sudoku_example_one);
+    bool r = metasudoku_has_exactly_one_solution(sudoku_example_17);
     printf("result is %s\n", r ? "true" : "false");
     return 0;
 }

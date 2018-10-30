@@ -5,16 +5,24 @@
 #include <stdio.h>
 #include "dance.h"
 
-int count_sudoku_result(size_t n, struct data_object **cols)
+static size_t g_sudoku_counter = 0;
+
+static dance_result count_sudoku_result(size_t n, struct data_object **cols)
 {
     (void)n;
     (void)cols;
-    printf("\n  found sudoku solution");
-    return 1;
+    dance_result result;
+    result.count = 1;
+    result.short_circuit = (++g_sudoku_counter >= 2);
+    return result;
 }
 
-bool sudoku_has_exactly_one_solution(int grid[9][9])
+static int solve_sudoku_with_callback(
+    const int grid[9][9],
+    dance_result (*f)(size_t, struct data_object **))
 {
+    g_sudoku_counter = 0;
+
     struct dance_matrix mat;
     int ns;
     size_t constraint[4];
@@ -60,7 +68,61 @@ bool sudoku_has_exactly_one_solution(int grid[9][9])
         }
     }
 
-    ns = dance_solve(&mat, count_sudoku_result);
+    ns = dance_solve(&mat, f);
     dance_free(&mat);
-    return (ns == 1);
+    return ns;
+}
+
+int count_sudoku_solutions(const int grid[9][9])
+{
+    g_sudoku_counter = 0;
+    return solve_sudoku_with_callback(grid, count_sudoku_result);
+}
+
+void print_sudoku_grid(const int grid[9][9])
+{
+    for (int j=0; j < 9; ++j) {
+        printf("   ");
+        for (int i=0; i < 9; ++i)
+          printf(" %d", grid[j][i]);
+        printf("\n");
+    }
+}
+
+static dance_result print_unique_sudoku_result(size_t n, struct data_object **sol)
+{
+    int grid[9][9];
+
+    for (size_t i=0; i < n; ++i) {
+        int constraint[4];
+        int row, col, val;
+        row = col = val = 0;  /* shut up "unused" warning from compiler */
+        constraint[0] = sol[i]->left->column->name;
+        constraint[1] = sol[i]->column->name;
+        constraint[2] = sol[i]->right->column->name;
+        constraint[3] = sol[i]->right->right->column->name;
+        for (size_t j=0; j < 4; ++j) {
+            if (constraint[j] < 81) {
+                row = constraint[j] / 9;
+                val = constraint[j] % 9 + 1;
+            }
+            else if (constraint[j] < 162) {
+                col = (constraint[j]-81) / 9;
+            }
+        }
+        grid[row][col] = val;
+    }
+
+    printf("-----\n");
+    print_sudoku_grid(grid);
+
+    dance_result result;
+    result.count = 1;
+    result.short_circuit = false;
+    return result;
+}
+
+void print_unique_sudoku_solution(const int grid[9][9])
+{
+    solve_sudoku_with_callback(grid, print_unique_sudoku_result);
 }
