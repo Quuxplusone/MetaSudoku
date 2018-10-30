@@ -169,14 +169,14 @@ dance_result dancing_search(
         }
         dance_result subresult = dancing_search(k+1, m, f, solution);
         result.count += subresult.count;
-        result.short_circuit = subresult.short_circuit;
+        if (subresult.short_circuit) {
+            result.short_circuit = true;
+            return result;
+        }
         r = solution[k];
         c = r->column;
         for (j = r->left; j != r; j = j->left) {
             dancing_uncover(j->column);
-        }
-        if (result.short_circuit) {
-            break;
         }
     }
 
