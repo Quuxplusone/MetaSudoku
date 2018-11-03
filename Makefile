@@ -1,3 +1,6 @@
 
-a.out: metasudoku.c sudoku.c sudoku.h dance.c dance.h
-	$(CC) -O3 metasudoku.c sudoku.c dance.c
+a.out: metasudoku.cc sudoku.cc sudoku.h dance.cc dance.h
+	$(CXX) -std=c++14 -O3 dance.cc -c
+	$(CXX) -std=c++14 -O3 sudoku.cc -c
+	$(CXX) -std=c++14 -O3 metasudoku.cc -c
+	$(CXX) -std=c++14 -O3 metasudoku.o sudoku.o dance.o

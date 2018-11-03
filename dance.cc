@@ -26,7 +26,7 @@ int dance_init(struct dance_matrix *m,
 
     m->nrows = rows;
     m->ncolumns = cols;
-    m->columns = Malloc(m->ncolumns * sizeof *m->columns);
+    m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
     m->head.data.right = &m->columns[0].data;
     m->head.data.left = &m->columns[m->ncolumns-1].data;
 
@@ -50,14 +50,14 @@ int dance_init(struct dance_matrix *m,
                    look up that column.
                 */
                 int ccol;
-                struct data_object *new = Malloc(sizeof *new);
-                new->down = &m->columns[i].data;
-                new->up = new->down->up;
-                new->down->up = new;
-                new->up->down = new;
-                new->left = new;
-                new->right = new;
-                new->column = &m->columns[i];
+                struct data_object *o = (struct data_object *)Malloc(sizeof *o);
+                o->down = &m->columns[i].data;
+                o->up = o->down->up;
+                o->down->up = o;
+                o->up->down = o;
+                o->left = o;
+                o->right = o;
+                o->column = &m->columns[i];
 
                 for (ccol=i-1; ccol >= 0; --ccol) {
                     if (data[j*cols+ccol] != 0) break;
@@ -70,10 +70,10 @@ int dance_init(struct dance_matrix *m,
                     left = &m->columns[ccol].data;
                     for ( ; cnt > 0; --cnt)
                       left = left->down;
-                    new->left = left;
-                    new->right = left->right;
-                    new->left->right = new;
-                    new->right->left = new;
+                    o->left = left;
+                    o->right = left->right;
+                    o->left->right = o;
+                    o->right->left = o;
                 }
 
                 /* Done inserting this "1" into the mesh. */
@@ -90,25 +90,26 @@ int dance_addrow(struct dance_matrix *m, size_t nentries, size_t *entries)
     struct data_object *h = NULL;
     size_t i;
 
-    struct data_object *news = Malloc(nentries * sizeof *news);
+    struct data_object *news = (struct data_object *)Malloc(nentries * sizeof *news);
     for (i=0; i < nentries; ++i) {
-        struct data_object *new = &news[i];
-        new->column = &m->columns[entries[i]];
-        new->down = &m->columns[entries[i]].data;
-        new->up = new->down->up;
-        new->down->up = new;
-        new->up->down = new;
+        struct data_object *o = &news[i];
+        o->column = &m->columns[entries[i]];
+        o->down = &m->columns[entries[i]].data;
+        o->up = o->down->up;
+        o->down->up = o;
+        o->up->down = o;
         if (h != NULL) {
-            new->left = h->left;
-            new->right = h;
-            new->left->right = new;
-            new->right->left = new;
+            o->left = h->left;
+            o->right = h;
+            o->left->right = o;
+            o->right->left = o;
         }
         else {
-            new->left = new->right = new;
-            h = new;
+            o->left = o;
+            o->right = o;
+            h = o;
         }
-        new->column->size += 1;
+        o->column->size += 1;
     }
 
     m->nrows += 1;
@@ -124,7 +125,7 @@ int dance_free(struct dance_matrix *m)
 int dance_solve(struct dance_matrix *m,
                 dance_result (*f)(size_t, struct data_object **))
 {
-    struct data_object **solution = Malloc(m->ncolumns * sizeof *solution);
+    struct data_object **solution = (struct data_object **)Malloc(m->ncolumns * sizeof *solution);
     dance_result result = dancing_search(0, m, f, solution);
     return result.count;
 }

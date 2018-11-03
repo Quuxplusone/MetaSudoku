@@ -5,6 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct dance_result {
     int count;
     int short_circuit;
@@ -41,3 +45,7 @@ int dance_solve(struct dance_matrix *m,
         struct data_object **solution);
  void dancing_cover(struct column_object *c);
  void dancing_uncover(struct column_object *c);
+
+#ifdef __cplusplus
+}
+#endif
