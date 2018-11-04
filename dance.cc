@@ -19,9 +19,9 @@ void *Malloc(size_t n)
     exit(EXIT_FAILURE);
 }
 
-void dance_init(struct dance_matrix *m, int rows, int cols, const int *data)
+void dance_init(struct dance_matrix *m, int cols)
 {
-    m->nrows = rows;
+    m->nrows = 0;
     m->ncolumns = cols;
     m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
     m->head.data.right = &m->columns[0].data;
@@ -38,49 +38,6 @@ void dance_init(struct dance_matrix *m, int rows, int cols, const int *data)
         if (i < cols-1)
           m->columns[i].data.right = &m->columns[i+1].data;
         else m->columns[i].data.right = &m->head.data;
-
-        for (int j=0; j < rows; ++j) {
-            if (data[j*cols+i] != 0) {
-                /*
-                   Found one! To insert it in the mesh at the
-                   proper place, look to our left, and then
-                   look up that column.
-                */
-                int ccol;
-                struct data_object *o = (struct data_object *)Malloc(sizeof *o);
-                o->down = &m->columns[i].data;
-                o->up = o->down->up;
-                o->down->up = o;
-                o->up->down = o;
-                o->left = o;
-                o->right = o;
-                o->column = &m->columns[i];
-
-                for (ccol=i-1; ccol >= 0; --ccol) {
-                    if (data[j*cols+ccol] != 0) {
-                        break;
-                    }
-                }
-                if (ccol >= 0) {
-                    int cnt = 0;
-                    struct data_object *left;
-                    for (auto crow = j; crow >= 0; --crow) {
-                        if (data[crow*cols+ccol] != 0) ++cnt;
-                    }
-                    left = &m->columns[ccol].data;
-                    for ( ; cnt > 0; --cnt) {
-                        left = left->down;
-                    }
-                    o->left = left;
-                    o->right = left->right;
-                    o->left->right = o;
-                    o->right->left = o;
-                }
-
-                /* Done inserting this "1" into the mesh. */
-                m->columns[i].size += 1;
-            }
-        }
     }
 }
 

@@ -36,7 +36,7 @@ static int solve_sudoku_with_callback(
     */
     int i, j, k;
 
-    dance_init(&mat, 0, cols, NULL);
+    dance_init(&mat, cols);
     /*
        Input the grid, square by square. Each possibility for
        a single number in a single square gives us a row of the

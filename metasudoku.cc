@@ -1,5 +1,4 @@
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -123,6 +122,12 @@ const int sudoku_example_17[9][9] = {
 
 int main()
 {
+    if (count_sudoku_solutions(sudoku_example_one) != 1) {
+        puts("FAILED SELF TEST"); exit(1);
+    } else if (count_sudoku_solutions(sudoku_example_17) != 1) {
+        puts("FAILED SELF TEST"); exit(1);
+    }
+
     bool r = metasudoku_has_exactly_one_solution(sudoku_example_17);
     printf("result is %s\n", r ? "true" : "false");
     return 0;
