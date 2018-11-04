@@ -24,20 +24,20 @@ void dance_init(struct dance_matrix *m, int cols)
     m->nrows = 0;
     m->ncolumns = cols;
     m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
-    m->head.data.right = &m->columns[0].data;
-    m->head.data.left = &m->columns[m->ncolumns-1].data;
+    m->head.right = &m->columns[0];
+    m->head.left = &m->columns[m->ncolumns-1];
 
     for (int i=0; i < m->ncolumns; ++i) {
         m->columns[i].name = i;
         m->columns[i].size = 0;
-        m->columns[i].data.up = &m->columns[i].data;
-        m->columns[i].data.down = &m->columns[i].data;
+        m->columns[i].up = &m->columns[i];
+        m->columns[i].down = &m->columns[i];
         if (i > 0)
-          m->columns[i].data.left = &m->columns[i-1].data;
-        else m->columns[i].data.left = &m->head.data;
+          m->columns[i].left = &m->columns[i-1];
+        else m->columns[i].left = &m->head;
         if (i < cols-1)
-          m->columns[i].data.right = &m->columns[i+1].data;
-        else m->columns[i].data.right = &m->head.data;
+          m->columns[i].right = &m->columns[i+1];
+        else m->columns[i].right = &m->head;
     }
 }
 
@@ -49,7 +49,7 @@ void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
     for (int i=0; i < nentries; ++i) {
         struct data_object *o = &news[i];
         o->column = &m->columns[entries[i]];
-        o->down = &m->columns[entries[i]].data;
+        o->down = &m->columns[entries[i]];
         o->up = o->down->up;
         o->down->up = o;
         o->up->down = o;
@@ -76,9 +76,9 @@ void dance_free(struct dance_matrix *m)
 
 static void dancing_cover(struct column_object *c)
 {
-    c->data.right->left = c->data.left;
-    c->data.left->right = c->data.right;
-    for (auto i = c->data.down; i != &c->data; i = i->down) {
+    c->right->left = c->left;
+    c->left->right = c->right;
+    for (auto i = c->down; i != c; i = i->down) {
         for (auto j = i->right; j != i; j = j->right) {
             j->down->up = j->up;
             j->up->down = j->down;
@@ -89,15 +89,15 @@ static void dancing_cover(struct column_object *c)
 
 static void dancing_uncover(struct column_object *c)
 {
-    for (auto i = c->data.up; i != &c->data; i = i->up) {
+    for (auto i = c->up; i != c; i = i->up) {
         for (auto j = i->left; j != i; j = j->left) {
             j->column->size += 1;
             j->down->up = j;
             j->up->down = j;
         }
     }
-    c->data.left->right = &c->data;
-    c->data.right->left = &c->data;
+    c->left->right = c;
+    c->right->left = c;
 }
 
 static dance_result dancing_search(
@@ -108,7 +108,7 @@ static dance_result dancing_search(
 {
     dance_result result = {0, false};
 
-    if (m->head.data.right == &m->head.data) {
+    if (m->head.right == &m->head) {
         return f(k, solution);
     }
 
@@ -117,8 +117,8 @@ static dance_result dancing_search(
     struct column_object *c = nullptr;
     if (true) {
         int minsize = m->nrows + 1;
-        for (auto j = m->head.data.right; j != &m->head.data; j = j->right) {
-            struct column_object *jj = (struct column_object *)j;
+        for (auto j = m->head.right; j != &m->head; j = j->right) {
+            auto jj = &j->as<column_object>();
             if (jj->size < minsize) {
                 c = jj;
                 minsize = jj->size;
@@ -127,13 +127,13 @@ static dance_result dancing_search(
         }
     }
 #else
-    struct column_object *c = (struct column_object *)m->head.data.right;
+    struct column_object *c = (struct column_object *)m->head.right;
 #endif
 
     /* Cover column |c|. */
     dancing_cover(c);
 
-    for (auto r = c->data.down; r != &c->data; r = r->down) {
+    for (auto r = c->down; r != c; r = r->down) {
         solution[k] = r;
         for (auto j = r->right; j != r; j = j->right) {
             dancing_cover(j->column);
