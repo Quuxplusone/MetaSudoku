@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <type_traits>
+
+extern char dance_memory_arena[];
 
 #if 0
 template<class T>
@@ -11,9 +11,10 @@ class DancePtr {
 public:
     DancePtr() = default;
     DancePtr(T *p) : ptr_(p) {}
-    operator T*() const { return ptr_; }
-    T* operator->() const { return ptr_; }
-    T& operator*() const { return *ptr_; }
+    T *get() const { return ptr_; }
+    operator T*() const { return get(); }
+    T* operator->() const { return get(); }
+    T& operator*() const { return *get(); }
 };
 #else
 template<class T>
@@ -44,7 +45,7 @@ struct dance_matrix {
     column_object head;
 };
 
-void dance_init(struct dance_matrix *m, int cols);
+struct dance_matrix *dance_init(int cols);
 void dance_addrow(struct dance_matrix *m, int nentries, int *entries);
-void dance_free(struct dance_matrix *m);
+void dance_free();
 int dance_solve(struct dance_matrix *m, dance_result (*f)(int, struct data_object **));

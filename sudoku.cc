@@ -22,10 +22,7 @@ static int solve_sudoku_with_callback(
 {
     g_sudoku_counter = 0;
 
-    struct dance_matrix mat;
-    int ns;
     int constraint[4];
-    int rows = 0;
     int cols = 9*(9+9+9)+81;
     /*
        1 in the first row; 2 in the first row;... 9 in the first row;
@@ -36,7 +33,7 @@ static int solve_sudoku_with_callback(
     */
     int i, j, k;
 
-    dance_init(&mat, cols);
+    dance_matrix *mat = dance_init(cols);
     /*
        Input the grid, square by square. Each possibility for
        a single number in a single square gives us a row of the
@@ -51,7 +48,7 @@ static int solve_sudoku_with_callback(
                 constraint[1] = 81 + 9*i + grid[j][i]-1;
                 constraint[2] = 162 + 9*box + grid[j][i]-1;
                 constraint[3] = 243 + (9*j+i);
-                dance_addrow(&mat, 4, constraint); ++rows;
+                dance_addrow(mat, 4, constraint);
                 seen_this_row[grid[j][i]-1] = 1;
             }
             else {
@@ -61,14 +58,14 @@ static int solve_sudoku_with_callback(
                     constraint[1] = 81 + 9*i + k;
                     constraint[2] = 162 + 9*box + k;
                     constraint[3] = 243 + (9*j+i);
-                    dance_addrow(&mat, 4, constraint); ++rows;
+                    dance_addrow(mat, 4, constraint);
                 }
             }
         }
     }
 
-    ns = dance_solve(&mat, f);
-    dance_free(&mat);
+    int ns = dance_solve(mat, f);
+    dance_free();
     return ns;
 }
 

@@ -7,20 +7,21 @@
 
 #define USE_HEURISTIC 1
 
-static char s_buffer[1000000];
+alignas(void*) char dance_memory_arena[1000000];
 static size_t s_index = 0;
 
 void *Malloc(size_t n)
 {
-    n = (n + 15) & ~15;
+    n = (n + 8) & ~8;
     s_index += n;
-    if (s_index <= sizeof s_buffer) return &s_buffer[s_index - n];
+    if (s_index <= sizeof dance_memory_arena) return &dance_memory_arena[s_index - n];
     printf("Out of memory in Malloc(%lu)!\n", (long unsigned)n);
     exit(EXIT_FAILURE);
 }
 
-void dance_init(struct dance_matrix *m, int cols)
+struct dance_matrix *dance_init(int cols)
 {
+    struct dance_matrix *m = (struct dance_matrix *)Malloc(sizeof *m);
     m->nrows = 0;
     m->ncolumns = cols;
     m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
@@ -39,6 +40,8 @@ void dance_init(struct dance_matrix *m, int cols)
           m->columns[i].right = &m->columns[i+1];
         else m->columns[i].right = &m->head;
     }
+
+    return m;
 }
 
 void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
@@ -69,7 +72,7 @@ void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
     m->nrows += 1;
 }
 
-void dance_free(struct dance_matrix *m)
+void dance_free()
 {
     s_index = 0;
 }
