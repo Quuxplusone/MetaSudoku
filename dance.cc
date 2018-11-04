@@ -19,18 +19,15 @@ void *Malloc(size_t n)
     exit(EXIT_FAILURE);
 }
 
-void dance_init(struct dance_matrix *m,
-        size_t rows, size_t cols, const int *data)
+void dance_init(struct dance_matrix *m, int rows, int cols, const int *data)
 {
-    size_t i, j;
-
     m->nrows = rows;
     m->ncolumns = cols;
     m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
     m->head.data.right = &m->columns[0].data;
     m->head.data.left = &m->columns[m->ncolumns-1].data;
 
-    for (i=0; i < m->ncolumns; ++i) {
+    for (int i=0; i < m->ncolumns; ++i) {
         m->columns[i].name = i;
         m->columns[i].size = 0;
         m->columns[i].data.up = &m->columns[i].data;
@@ -42,7 +39,7 @@ void dance_init(struct dance_matrix *m,
           m->columns[i].data.right = &m->columns[i+1].data;
         else m->columns[i].data.right = &m->head.data;
 
-        for (j=0; j < rows; ++j) {
+        for (int j=0; j < rows; ++j) {
             if (data[j*cols+i] != 0) {
                 /*
                    Found one! To insert it in the mesh at the
@@ -60,16 +57,20 @@ void dance_init(struct dance_matrix *m,
                 o->column = &m->columns[i];
 
                 for (ccol=i-1; ccol >= 0; --ccol) {
-                    if (data[j*cols+ccol] != 0) break;
+                    if (data[j*cols+ccol] != 0) {
+                        break;
+                    }
                 }
                 if (ccol >= 0) {
-                    int crow, cnt=0;
+                    int cnt = 0;
                     struct data_object *left;
-                    for (crow=j; crow >= 0; --crow)
-                      if (data[crow*cols+ccol] != 0) ++cnt;
+                    for (auto crow = j; crow >= 0; --crow) {
+                        if (data[crow*cols+ccol] != 0) ++cnt;
+                    }
                     left = &m->columns[ccol].data;
-                    for ( ; cnt > 0; --cnt)
-                      left = left->down;
+                    for ( ; cnt > 0; --cnt) {
+                        left = left->down;
+                    }
                     o->left = left;
                     o->right = left->right;
                     o->left->right = o;
@@ -83,26 +84,24 @@ void dance_init(struct dance_matrix *m,
     }
 }
 
-void dance_addrow(struct dance_matrix *m, size_t nentries, size_t *entries)
+void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
 {
-    struct data_object *h = NULL;
-    size_t i;
+    struct data_object *h = nullptr;
 
     struct data_object *news = (struct data_object *)Malloc(nentries * sizeof *news);
-    for (i=0; i < nentries; ++i) {
+    for (int i=0; i < nentries; ++i) {
         struct data_object *o = &news[i];
         o->column = &m->columns[entries[i]];
         o->down = &m->columns[entries[i]].data;
         o->up = o->down->up;
         o->down->up = o;
         o->up->down = o;
-        if (h != NULL) {
+        if (h != nullptr) {
             o->left = h->left;
             o->right = h;
             o->left->right = o;
             o->right->left = o;
-        }
-        else {
+        } else {
             o->left = o;
             o->right = o;
             h = o;
@@ -120,12 +119,10 @@ void dance_free(struct dance_matrix *m)
 
 static void dancing_cover(struct column_object *c)
 {
-    struct data_object *i, *j;
-
     c->data.right->left = c->data.left;
     c->data.left->right = c->data.right;
-    for (i = c->data.down; i != &c->data; i = i->down) {
-        for (j = i->right; j != i; j = j->right) {
+    for (auto i = c->data.down; i != &c->data; i = i->down) {
+        for (auto j = i->right; j != i; j = j->right) {
             j->down->up = j->up;
             j->up->down = j->down;
             j->column->size -= 1;
@@ -135,10 +132,8 @@ static void dancing_cover(struct column_object *c)
 
 static void dancing_uncover(struct column_object *c)
 {
-    struct data_object *i, *j;
-
-    for (i = c->data.up; i != &c->data; i = i->up) {
-        for (j = i->left; j != i; j = j->left) {
+    for (auto i = c->data.up; i != &c->data; i = i->up) {
+        for (auto j = i->left; j != i; j = j->left) {
             j->column->size += 1;
             j->down->up = j;
             j->up->down = j;
@@ -149,13 +144,11 @@ static void dancing_uncover(struct column_object *c)
 }
 
 static dance_result dancing_search(
-    size_t k,
+    int k,
     struct dance_matrix *m,
-    dance_result (*f)(size_t, struct data_object **),
+    dance_result (*f)(int, struct data_object **),
     struct data_object **solution)
 {
-    struct column_object *c = NULL;
-    struct data_object *r, *j;
     dance_result result = {0, false};
 
     if (m->head.data.right == &m->head.data) {
@@ -164,26 +157,28 @@ static dance_result dancing_search(
 
     /* Choose a column object |c|. */
 #if USE_HEURISTIC
-    { size_t minsize = m->nrows+1;
-    for (j = m->head.data.right; j != &m->head.data; j = j->right) {
-        struct column_object *jj = (struct column_object *)j;
-        if (jj->size < minsize) {
-            c = jj;
-            minsize = jj->size;
-            if (minsize <= 1) break;
+    struct column_object *c = nullptr;
+    if (true) {
+        int minsize = m->nrows + 1;
+        for (auto j = m->head.data.right; j != &m->head.data; j = j->right) {
+            struct column_object *jj = (struct column_object *)j;
+            if (jj->size < minsize) {
+                c = jj;
+                minsize = jj->size;
+                if (minsize <= 1) break;
+            }
         }
     }
-    }
 #else
-    c = (struct column_object *)m->head.data.right;
+    struct column_object *c = (struct column_object *)m->head.data.right;
 #endif
 
     /* Cover column |c|. */
     dancing_cover(c);
 
-    for (r = c->data.down; r != &c->data; r = r->down) {
+    for (auto r = c->data.down; r != &c->data; r = r->down) {
         solution[k] = r;
-        for (j = r->right; j != r; j = j->right) {
+        for (auto j = r->right; j != r; j = j->right) {
             dancing_cover(j->column);
         }
         dance_result subresult = dancing_search(k+1, m, f, solution);
@@ -194,7 +189,7 @@ static dance_result dancing_search(
         }
         r = solution[k];
         c = r->column;
-        for (j = r->left; j != r; j = j->left) {
+        for (auto j = r->left; j != r; j = j->left) {
             dancing_uncover(j->column);
         }
     }
@@ -205,7 +200,7 @@ static dance_result dancing_search(
 }
 
 int dance_solve(struct dance_matrix *m,
-                dance_result (*f)(size_t, struct data_object **))
+                dance_result (*f)(int, struct data_object **))
 {
     struct data_object **solution = (struct data_object **)Malloc(m->ncolumns * sizeof *solution);
     dance_result result = dancing_search(0, m, f, solution);
