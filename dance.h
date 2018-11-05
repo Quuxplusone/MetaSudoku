@@ -9,12 +9,12 @@ template<class T>
 class DancePtr {
     T *ptr_;
 public:
-    DancePtr() = default;
-    DancePtr(T *p) : ptr_(p) {}
-    T *get() const { return ptr_; }
-    operator T*() const { return get(); }
-    T* operator->() const { return get(); }
-    T& operator*() const { return *get(); }
+    constexpr DancePtr() noexcept = default;
+    constexpr DancePtr(T *p) noexcept : ptr_(p) {}
+    constexpr T *get() const noexcept { return ptr_; }
+    constexpr operator T*() const noexcept { return get(); }
+    constexpr T* operator->() const noexcept { return get(); }
+    constexpr T& operator*() const noexcept { return *get(); }
 };
 #else
 template<class T>
