@@ -7,22 +7,19 @@
 
 #define USE_HEURISTIC 1
 
-alignas(void*) char dance_memory_arena[1000000];
-static size_t s_index = 0;
-
-void *Malloc(size_t n)
+void *DanceMatrix::Malloc(size_t n)
 {
     n = (n + 8) & ~8;
-    s_index += n;
-    if (s_index <= sizeof dance_memory_arena) return &dance_memory_arena[s_index - n];
-    printf("Out of memory in Malloc(%lu)!\n", (long unsigned)n);
+    arena_used_ += n;
+    if (arena_used_ <= sizeof memory_arena_) return &memory_arena_[arena_used_ - n];
+    printf("Out of memory in Malloc(%zu)!\n", n);
     exit(EXIT_FAILURE);
 }
 
-struct dance_matrix *dance_init(int cols)
+void DanceMatrix::init(int cols)
 {
-    struct dance_matrix *m = (struct dance_matrix *)Malloc(sizeof *m);
-    m->nrows = 0;
+    DanceMatrix *m = this;
+    m->arena_used_ = 0;
     m->ncolumns = cols;
     m->columns = (struct column_object *)Malloc(m->ncolumns * sizeof *m->columns);
     m->head.right = &m->columns[0];
@@ -40,12 +37,11 @@ struct dance_matrix *dance_init(int cols)
           m->columns[i].right = &m->columns[i+1];
         else m->columns[i].right = &m->head;
     }
-
-    return m;
 }
 
-void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
+void DanceMatrix::addrow(int nentries, int *entries)
 {
+    DanceMatrix *m = this;
     struct data_object *h = nullptr;
 
     struct data_object *news = (struct data_object *)Malloc(nentries * sizeof *news);
@@ -68,13 +64,6 @@ void dance_addrow(struct dance_matrix *m, int nentries, int *entries)
         }
         o->column->size += 1;
     }
-
-    m->nrows += 1;
-}
-
-void dance_free()
-{
-    s_index = 0;
 }
 
 static void dancing_cover(struct column_object *c)
@@ -103,12 +92,13 @@ static void dancing_uncover(struct column_object *c)
     c->right->left = c;
 }
 
-static dance_result dancing_search(
+dance_result DanceMatrix::dancing_search(
     int k,
-    struct dance_matrix *m,
     dance_result (*f)(int, struct data_object **),
     struct data_object **solution)
 {
+    DanceMatrix *m = this;
+
     dance_result result = {0, false};
 
     if (m->head.right == &m->head) {
@@ -141,7 +131,7 @@ static dance_result dancing_search(
         for (auto j = r->right; j != r; j = j->right) {
             dancing_cover(j->column);
         }
-        dance_result subresult = dancing_search(k+1, m, f, solution);
+        dance_result subresult = this->dancing_search(k+1, f, solution);
         result.count += subresult.count;
         if (subresult.short_circuit) {
             result.short_circuit = true;
@@ -159,10 +149,9 @@ static dance_result dancing_search(
     return result;
 }
 
-int dance_solve(struct dance_matrix *m,
-                dance_result (*f)(int, struct data_object **))
+int DanceMatrix::solve(dance_result (*f)(int, struct data_object **))
 {
-    struct data_object **solution = (struct data_object **)Malloc(m->ncolumns * sizeof *solution);
-    dance_result result = dancing_search(0, m, f, solution);
+    struct data_object **solution = (struct data_object **)Malloc(ncolumns * sizeof *solution);
+    dance_result result = this->dancing_search(0, f, solution);
     return result.count;
 }

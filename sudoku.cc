@@ -16,6 +16,8 @@ static dance_result count_sudoku_result(int n, struct data_object **cols)
     return result;
 }
 
+static DanceMatrix mat;
+
 static int solve_sudoku_with_callback(
     const int grid[9][9],
     dance_result (*f)(int, struct data_object **))
@@ -23,7 +25,7 @@ static int solve_sudoku_with_callback(
     g_sudoku_counter = 0;
 
     int constraint[4];
-    int cols = 9*(9+9+9)+81;
+    int ncols = 9*(9+9+9)+81;
     /*
        1 in the first row; 2 in the first row;... 9 in the first row;
        1 in the second row;... 9 in the ninth row;
@@ -31,41 +33,44 @@ static int solve_sudoku_with_callback(
        1 in the first box; 2 in the first box;... 9 in the ninth box;
        Something in (1,1); Something in (1,2);... Something in (9,9)
     */
-    int i, j, k;
+    int nrows = 0;
 
-    dance_matrix *mat = dance_init(cols);
+    mat.init(ncols);
+
     /*
        Input the grid, square by square. Each possibility for
        a single number in a single square gives us a row of the
        matrix with exactly four entries in it.
     */
-    for (j=0; j < 9; ++j) {
+    for (int j=0; j < 9; ++j) {
         int seen_this_row[9] = {0};
-        for (i=0; i < 9; ++i) {
+        for (int i=0; i < 9; ++i) {
             int box = (j/3)*3 + (i/3);
             if (grid[j][i] != 0) {
                 constraint[0] = 9*j + grid[j][i]-1;
                 constraint[1] = 81 + 9*i + grid[j][i]-1;
                 constraint[2] = 162 + 9*box + grid[j][i]-1;
                 constraint[3] = 243 + (9*j+i);
-                dance_addrow(mat, 4, constraint);
+                mat.addrow(4, constraint);
+                ++nrows;
                 seen_this_row[grid[j][i]-1] = 1;
             }
             else {
-                for (k=0; k < 9; ++k) {
+                for (int k=0; k < 9; ++k) {
                     if (seen_this_row[k]) continue;
                     constraint[0] = 9*j + k;
                     constraint[1] = 81 + 9*i + k;
                     constraint[2] = 162 + 9*box + k;
                     constraint[3] = 243 + (9*j+i);
-                    dance_addrow(mat, 4, constraint);
+                    mat.addrow(4, constraint);
+                    ++nrows;
                 }
             }
         }
     }
+    mat.set_nrows(nrows);
 
-    int ns = dance_solve(mat, f);
-    dance_free();
+    int ns = mat.solve(f);
     return ns;
 }
 
