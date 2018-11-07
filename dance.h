@@ -44,7 +44,7 @@ public:
     explicit DanceMatrix() = default;
     void init(int ncols);
     void addrow(int nentries, int *entries);
-    void set_nrows(int n) { nrows = n; }
+    void set_nrows(int n) { nrows_ = n; }
     int solve(dance_result (*f)(int, struct data_object **));
 
 private:
@@ -55,10 +55,10 @@ private:
         struct data_object **solution
     );
 
-    int nrows;
-    int ncolumns;
-    DancePtr<column_object> columns;
-    column_object head;
+    int nrows_;
+    int ncolumns_;
+    DancePtr<column_object> columns_;
+    column_object head_;
     size_t arena_used_ = 0;
     alignas(8) char memory_arena_[1000000];
 };
