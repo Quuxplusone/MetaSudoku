@@ -55,10 +55,12 @@ private:
         struct data_object **solution
     );
 
+public:
     int nrows_;
+private:
     int ncolumns_;
     DancePtr<column_object> columns_;
     column_object head_;
     size_t arena_used_ = 0;
-    alignas(8) char memory_arena_[1000000];
+    alignas(8) char memory_arena_[120000];
 };

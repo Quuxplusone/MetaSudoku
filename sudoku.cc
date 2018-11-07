@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "dance.h"
+#include "odo-sudoku.h"
 
 static size_t g_sudoku_counter = 0;
 
@@ -17,13 +18,65 @@ static dance_result count_sudoku_result(int n, struct data_object **cols)
 }
 
 static DanceMatrix mat;
+static DanceMatrix mat2;
+
+void begin_odometer_sudoku(const int flatgrid[81])
+{
+    int ncols = 9*(9+9+9)+81;
+    mat.init(ncols);
+
+    int nrows = 0;
+    int constraint[4];
+    for (int i = 0; i < 81; ++i) {
+        if (flatgrid[i] != 0) continue;
+        int row = i / 9;
+        int col = i % 9;
+        int box = (row/3)*3 + (col/3);
+        int value = flatgrid[i];
+        for (int value = 9; value >= 1; --value) {
+            constraint[0] = 9*row + value-1;
+            constraint[1] = 81 + 9*col + value-1;
+            constraint[2] = 162 + 9*box + value-1;
+            constraint[3] = 243 + (9*row+col);
+            mat.addrow(4, constraint);
+        }
+        nrows += 9;
+    }
+    mat.nrows_ = nrows;
+    mat2 = mat;
+}
+
+void complete_odometer_sudoku(
+    const OdometerWheel *odometer, int num_wheels)
+{
+    mat = mat2;
+
+    int constraint[4];
+    for (int i = 0; i < num_wheels; ++i) {
+        const OdometerWheel *odo = &odometer[i];
+        int row = odo->i / 9;
+        int col = odo->i % 9;
+        int box = (row/3)*3 + (col/3);
+        int value = odo->value;
+        constraint[0] = 9*row + value-1;
+        constraint[1] = 81 + 9*col + value-1;
+        constraint[2] = 162 + 9*box + value-1;
+        constraint[3] = 243 + (9*row+col);
+        mat.addrow(4, constraint);
+    }
+    mat.nrows_ += num_wheels;
+}
+
+int count_solutions_to_odometer_sudoku()
+{
+    g_sudoku_counter = 0;
+    return mat.solve(count_sudoku_result);
+}
 
 static int solve_sudoku_with_callback(
     const int grid[9][9],
     dance_result (*f)(int, struct data_object **))
 {
-    g_sudoku_counter = 0;
-
     int constraint[4];
     int ncols = 9*(9+9+9)+81;
     /*
@@ -69,9 +122,7 @@ static int solve_sudoku_with_callback(
         }
     }
     mat.set_nrows(nrows);
-
-    int ns = mat.solve(f);
-    return ns;
+    return mat.solve(f);
 }
 
 int count_sudoku_solutions(const int grid[9][9])
