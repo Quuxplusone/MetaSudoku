@@ -7,10 +7,8 @@
 
 static size_t g_sudoku_counter = 0;
 
-static dance_result count_sudoku_result(int n, struct data_object **cols)
+static dance_result count_sudoku_result(int, struct data_object **)
 {
-    (void)n;
-    (void)cols;
     dance_result result;
     result.count = 1;
     result.short_circuit = (++g_sudoku_counter >= 2);
@@ -20,7 +18,7 @@ static dance_result count_sudoku_result(int n, struct data_object **cols)
 static DanceMatrix mat;
 static DanceMatrix mat2;
 
-void begin_odometer_sudoku(const int flatgrid[81])
+void begin_odometer_sudoku(const int grid[9][9])
 {
     int ncols = 9*(9+9+9)+81;
     mat.init(ncols);
@@ -28,11 +26,11 @@ void begin_odometer_sudoku(const int flatgrid[81])
     int nrows = 0;
     int constraint[4];
     for (int i = 0; i < 81; ++i) {
-        if (flatgrid[i] != 0) continue;
         int row = i / 9;
         int col = i % 9;
         int box = (row/3)*3 + (col/3);
-        int value = flatgrid[i];
+        int value = grid[row][col];
+        if (value != 0) continue;
         for (int value = 9; value >= 1; --value) {
             constraint[0] = 9*row + value-1;
             constraint[1] = 81 + 9*col + value-1;
@@ -46,25 +44,24 @@ void begin_odometer_sudoku(const int flatgrid[81])
     mat2 = mat;
 }
 
-void complete_odometer_sudoku(
-    const OdometerWheel *odometer, int num_wheels)
+void complete_odometer_sudoku(const Odometer& odometer)
 {
     mat = mat2;
 
     int constraint[4];
-    for (int i = 0; i < num_wheels; ++i) {
-        const OdometerWheel *odo = &odometer[i];
-        int row = odo->i / 9;
-        int col = odo->i % 9;
+    for (int i = 0; i < odometer.num_wheels; ++i) {
+        const OdometerWheel& wheel = odometer.wheels[i];
+        int row = wheel.idx / 9;
+        int col = wheel.idx % 9;
         int box = (row/3)*3 + (col/3);
-        int value = odo->value;
+        int value = wheel.value;
         constraint[0] = 9*row + value-1;
         constraint[1] = 81 + 9*col + value-1;
         constraint[2] = 162 + 9*box + value-1;
         constraint[3] = 243 + (9*row+col);
         mat.addrow(4, constraint);
     }
-    mat.nrows_ += num_wheels;
+    mat.nrows_ += odometer.num_wheels;
 }
 
 int count_solutions_to_odometer_sudoku()
@@ -121,7 +118,7 @@ static int solve_sudoku_with_callback(
             }
         }
     }
-    mat.set_nrows(nrows);
+    mat.nrows_ = nrows;
     return mat.solve(f);
 }
 

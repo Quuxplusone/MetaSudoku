@@ -7,32 +7,50 @@
 #include "sudoku.h"
 #include "odo-sudoku.h"
 
-void odometer_to_grid(const OdometerWheel *odometer, int num_wheels,
-                      int grid[9][9])
+constexpr Odometer odometer_from_grid(const int grid[9][9])
+{
+    Odometer odometer;
+    for (int idx = 0; idx < 81; ++idx) {
+        if (grid[idx/9][idx%9] == 0) continue;
+        OdometerWheel new_wheel(idx);
+        for (int i=0; i < odometer.num_wheels; ++i) {
+            int pc = odometer.wheels[i].idx;
+            bool same_row = (pc / 9 == idx / 9);
+            bool same_col = (pc % 9 == idx % 9);
+            bool same_box = ((pc / 9) / 3 == (idx / 9) / 3) && ((pc % 9) / 3 == (idx % 9) / 3);
+            if (same_row || same_col || same_box) {
+                new_wheel.add_conflict(i);
+            }
+        }
+        odometer.add_wheel(new_wheel);
+    }
+    return odometer;
+}
+
+void odometer_to_grid(const Odometer& odometer, int grid[9][9])
 {
     memset(grid, '\0', 81 * sizeof(int));
-    for (int i=0; i < num_wheels; ++i) {
-        const OdometerWheel *odo = &odometer[i];
-        int row = odo->i / 9;
-        int col = odo->i % 9;
-        grid[row][col] = odo->value;
+    for (int i=0; i < odometer.num_wheels; ++i) {
+        const OdometerWheel& wheel = odometer.wheels[i];
+        int row = wheel.idx / 9;
+        int col = wheel.idx % 9;
+        grid[row][col] = wheel.value;
     }
 }
 
-bool has_prior_conflict(const OdometerWheel *odo, int value)
+bool has_prior_conflict(const Odometer& odometer, const OdometerWheel& wheel, int value)
 {
-    for (int i=0; i < odo->num_conflicts; ++i) {
-        if (*odo->conflicts[i] == value) {
+    for (int i=0; i < wheel.num_conflicts; ++i) {
+        if (odometer.wheels[wheel.conflicts[i]].value == value) {
             return true;
         }
     }
     return false;
 }
 
-int count_solutions_with_odometer(const OdometerWheel *odometer, int num_wheels,
-                                  int wheel, int next_unseen_value)
+int count_solutions_with_odometer(Odometer& odometer, int wheel_idx, int next_unseen_value)
 {
-    if (wheel == num_wheels) {
+    if (wheel_idx == odometer.num_wheels) {
         if (next_unseen_value >= 9) {
             static size_t counter = 0;
             ++counter;
@@ -41,73 +59,48 @@ int count_solutions_with_odometer(const OdometerWheel *odometer, int num_wheels,
                 fflush(stdout);
             }
 #if 1
-            complete_odometer_sudoku(odometer, num_wheels);
+            complete_odometer_sudoku(odometer);
+#if 1
             int solution_count = count_solutions_to_odometer_sudoku();
             if (solution_count == 1) {
                 printf("This sudoku grid was a meta solution!\n");
                 int grid[9][9];
-                odometer_to_grid(odometer, num_wheels, grid);
+                odometer_to_grid(odometer, grid);
                 print_sudoku_grid(grid);
                 printf("The unique solution to the sudoku grid above is:\n");
                 print_unique_sudoku_solution(grid);
                 return 1;
             }
 #endif
+#endif
         }
         return 0;
     }
 
-    const struct OdometerWheel *odo = &odometer[wheel];
+    OdometerWheel *wheel = &odometer.wheels[wheel_idx];
     int result = 0;
     for (int value = 1; value < next_unseen_value; ++value) {
-        if (has_prior_conflict(odo, value)) continue;
-        odo->value = value;
-        result += count_solutions_with_odometer(odometer, num_wheels, wheel+1, next_unseen_value);
+        if (has_prior_conflict(odometer, *wheel, value)) continue;
+        wheel->value = value;
+        result += count_solutions_with_odometer(odometer, wheel_idx+1, next_unseen_value);
         if (result >= 2) {
             printf("short-circuiting with result %d!\n", result);
             return result;  // short-circuit
         }
     }
     if (next_unseen_value <= 9) {
-        odo->value = next_unseen_value;
-        result += count_solutions_with_odometer(odometer, num_wheels, wheel+1, next_unseen_value+1);
+        wheel->value = next_unseen_value;
+        result += count_solutions_with_odometer(odometer, wheel_idx+1, next_unseen_value+1);
     }
     return result;
 }
 
 bool metasudoku_has_exactly_one_solution(const int grid[9][9])
 {
-    int flatgrid[81];
-    memcpy(flatgrid, grid, sizeof flatgrid);
+    begin_odometer_sudoku(grid);
 
-    struct OdometerWheel odometer[81];
-    int num_wheels = 0;
-
-    for (int i = 0; i < 81; ++i) {
-        if (flatgrid[i] == 0) continue;
-        struct OdometerWheel *odo = &odometer[num_wheels++];
-        odo->i = i;
-        odo->num_conflicts = 0;
-        for (int pc = 0; pc < i; ++pc) {
-            if (flatgrid[pc] == 0) continue;
-            bool same_row = (pc / 9 == i / 9);
-            bool same_col = (pc % 9 == i % 9);
-            bool same_box = ((pc / 9) / 3 == (i / 9) / 3) && ((pc % 9) / 3 == (i % 9) / 3);
-            if (same_row || same_col || same_box) {
-                for (int w=0; w+1 < num_wheels; ++w) {
-                    if (odometer[w].i == pc) {
-                        odo->conflicts[odo->num_conflicts++] = &odometer[w].value;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    begin_odometer_sudoku(flatgrid);
-
-    // Now we've built our odometer.
-    int num_solutions = count_solutions_with_odometer(odometer, num_wheels, 0, 1);
+    Odometer odometer = odometer_from_grid(grid);
+    int num_solutions = count_solutions_with_odometer(odometer, 0, 1);
     printf("num_solutions is %d\n", num_solutions);
     return num_solutions == 1;
 }

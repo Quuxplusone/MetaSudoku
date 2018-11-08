@@ -44,7 +44,6 @@ public:
     explicit DanceMatrix() = default;
     void init(int ncols);
     void addrow(int nentries, int *entries);
-    void set_nrows(int n) { nrows_ = n; }
     int solve(dance_result (*f)(int, struct data_object **));
 
 private:
