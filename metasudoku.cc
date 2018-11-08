@@ -113,7 +113,7 @@ bool metasudoku_has_exactly_one_solution(const int grid[9][9])
 }
 
 
-const int sudoku_example_one[9][9] = {
+const int sudoku_example_newspaper[9][9] = {
     {4,8,0,9,2,0,3,0,0},
     {9,5,0,0,8,0,0,0,4},
     {0,0,2,5,0,0,0,0,0},
@@ -137,11 +137,25 @@ const int sudoku_example_17[9][9] = {
     {0,0,0,2,0,0,6,0,0},
 };
 
+const int sudoku_example_moose[9][9] = {
+    {0,0,9,0,0,0,8,0,0},
+    {0,6,0,0,0,0,0,4,0},
+    {3,0,0,1,4,2,0,0,9},
+    {0,1,4,0,0,0,9,6,0},
+    {0,0,5,6,0,9,7,0,0},
+    {0,0,8,0,0,0,2,0,0},
+    {0,0,6,0,0,0,3,0,0},
+    {0,0,0,9,0,5,0,0,0},
+    {0,0,0,0,1,0,0,0,0},
+};
+
 int main()
 {
-    if (count_sudoku_solutions(sudoku_example_one) != 1) {
+    if (count_sudoku_solutions(sudoku_example_newspaper) != 1) {
         puts("FAILED SELF TEST"); exit(1);
     } else if (count_sudoku_solutions(sudoku_example_17) != 1) {
+        puts("FAILED SELF TEST"); exit(1);
+    } else if (count_sudoku_solutions(sudoku_example_moose) != 1) {
         puts("FAILED SELF TEST"); exit(1);
     }
 
