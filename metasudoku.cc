@@ -94,7 +94,12 @@ bool metasudoku_has_exactly_one_solution(const int grid[9][9])
             bool same_col = (pc % 9 == i % 9);
             bool same_box = ((pc / 9) / 3 == (i / 9) / 3) && ((pc % 9) / 3 == (i % 9) / 3);
             if (same_row || same_col || same_box) {
-                odo->conflicts[odo->num_conflicts++] = &flatgrid[pc];
+                for (int w=0; w+1 < num_wheels; ++w) {
+                    if (odometer[w].i == pc) {
+                        odo->conflicts[odo->num_conflicts++] = &odometer[w].value;
+                        break;
+                    }
+                }
             }
         }
     }
