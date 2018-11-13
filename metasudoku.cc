@@ -7,6 +7,8 @@
 #include "sudoku.h"
 #include "odo-sudoku.h"
 
+static Workspace workspace;
+
 constexpr Odometer odometer_from_grid(const int grid[9][9])
 {
     Odometer odometer;
@@ -59,9 +61,9 @@ int count_solutions_with_odometer(Odometer& odometer, int wheel_idx, int next_un
                 fflush(stdout);
             }
 #if 1
-            complete_odometer_sudoku(odometer);
+            workspace.complete_odometer_sudoku(odometer);
 #if 1
-            int solution_count = count_solutions_to_odometer_sudoku();
+            int solution_count = workspace.count_solutions_to_odometer_sudoku();
             if (solution_count == 1) {
                 printf("This sudoku grid was a meta solution!\n");
                 int grid[9][9];
@@ -97,7 +99,7 @@ int count_solutions_with_odometer(Odometer& odometer, int wheel_idx, int next_un
 
 bool metasudoku_has_exactly_one_solution(const int grid[9][9])
 {
-    begin_odometer_sudoku(grid);
+    workspace.begin_odometer_sudoku(grid);
 
     Odometer odometer = odometer_from_grid(grid);
     int num_solutions = count_solutions_with_odometer(odometer, 0, 1);

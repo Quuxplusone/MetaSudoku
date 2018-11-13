@@ -30,8 +30,12 @@ struct Odometer {
     constexpr Odometer() = default;
 };
 
-void begin_odometer_sudoku(const int grid[9][9]);
+struct Workspace {
+    DanceMatrix mat;
+    DanceMatrix mat2;
 
-void complete_odometer_sudoku(const Odometer& odometer);
+    void begin_odometer_sudoku(const int grid[9][9]);
+    void complete_odometer_sudoku(const Odometer& odometer);
+    int count_solutions_to_odometer_sudoku();
+};
 
-int count_solutions_to_odometer_sudoku();

@@ -5,10 +5,7 @@
 #include "dance.h"
 #include "odo-sudoku.h"
 
-static DanceMatrix mat;
-static DanceMatrix mat2;
-
-void begin_odometer_sudoku(const int grid[9][9])
+void Workspace::begin_odometer_sudoku(const int grid[9][9])
 {
     int ncols = 9*(9+9+9)+81;
     mat.init(ncols);
@@ -34,7 +31,7 @@ void begin_odometer_sudoku(const int grid[9][9])
     mat2 = mat;
 }
 
-void complete_odometer_sudoku(const Odometer& odometer)
+void Workspace::complete_odometer_sudoku(const Odometer& odometer)
 {
     mat = mat2;
 
@@ -54,7 +51,7 @@ void complete_odometer_sudoku(const Odometer& odometer)
     mat.nrows_ += odometer.num_wheels;
 }
 
-int count_solutions_to_odometer_sudoku()
+int Workspace::count_solutions_to_odometer_sudoku()
 {
     auto f = [count = 0](int, auto**) mutable {
         dance_result result;
@@ -79,6 +76,7 @@ static int solve_sudoku_with_callback(const int grid[9][9], F f)
     */
     int nrows = 0;
 
+    DanceMatrix mat;
     mat.init(ncols);
 
     /*
