@@ -5,16 +5,6 @@
 #include "dance.h"
 #include "odo-sudoku.h"
 
-static size_t g_sudoku_counter = 0;
-
-static dance_result count_sudoku_result(int, struct data_object **)
-{
-    dance_result result;
-    result.count = 1;
-    result.short_circuit = (++g_sudoku_counter >= 2);
-    return result;
-}
-
 static DanceMatrix mat;
 static DanceMatrix mat2;
 
@@ -66,13 +56,17 @@ void complete_odometer_sudoku(const Odometer& odometer)
 
 int count_solutions_to_odometer_sudoku()
 {
-    g_sudoku_counter = 0;
-    return mat.solve(count_sudoku_result);
+    auto f = [count = 0](int, auto**) mutable {
+        dance_result result;
+        result.count = 1;
+        result.short_circuit = (++count >= 2);
+        return result;
+    };
+    return mat.solve(std::ref(f));
 }
 
-static int solve_sudoku_with_callback(
-    const int grid[9][9],
-    dance_result (*f)(int, struct data_object **))
+template<class F>
+static int solve_sudoku_with_callback(const int grid[9][9], F f)
 {
     int constraint[4];
     int ncols = 9*(9+9+9)+81;
@@ -124,8 +118,13 @@ static int solve_sudoku_with_callback(
 
 int count_sudoku_solutions(const int grid[9][9])
 {
-    g_sudoku_counter = 0;
-    return solve_sudoku_with_callback(grid, count_sudoku_result);
+    auto f = [count = 0](int, auto**) mutable {
+        dance_result result;
+        result.count = 1;
+        result.short_circuit = (++count >= 2);
+        return result;
+    };
+    return solve_sudoku_with_callback(grid, std::ref(f));
 }
 
 void print_sudoku_grid(const int grid[9][9])
