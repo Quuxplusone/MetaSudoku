@@ -33,6 +33,7 @@ struct Odometer {
 struct Workspace {
     DanceMatrix mat;
     DanceMatrix mat2;
+    size_t processed = 0;
 
     void begin_odometer_sudoku(const int grid[9][9]);
     void complete_odometer_sudoku(const Odometer& odometer);
