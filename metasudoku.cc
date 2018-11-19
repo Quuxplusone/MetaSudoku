@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,10 +13,26 @@
 
 static size_t count_of_viable_grids = 0;
 
-constexpr Odometer odometer_from_grid(const int grid[9][9])
+Odometer odometer_from_grid(const int grid[9][9])
 {
+    // Filling the grid in non-reading order actually
+    // helps us find solvable Sudokus more quickly.
+    // The particular order chosen here is arbitrary.
+    static const int transform_idx[81] = {
+        30, 71, 34, 51, 36,  9, 20, 53, 38,
+        33,  0, 31, 70, 57, 52, 37,  8, 21,
+        72, 29, 50, 35, 10, 19, 54, 39,  6,
+        49, 32,  1, 56, 69, 58,  7, 22, 61,
+        28, 73, 48, 11, 18, 55, 60,  5, 40,
+        47, 12, 27,  2, 59, 68, 41, 62, 23,
+        74, 15, 76, 79, 26, 17,  4, 65, 42,
+        77, 46, 13, 16,  3, 44, 67, 24, 63,
+        14, 75, 78, 45, 80, 25, 64, 43, 66,
+    };
+
     Odometer odometer;
-    for (int idx = 0; idx < 81; ++idx) {
+    for (int pre_idx = 0; pre_idx < 81; ++pre_idx) {
+        int idx = transform_idx[pre_idx];
         if (grid[idx/9][idx%9] == 0) continue;
         OdometerWheel new_wheel(idx);
         for (int i=0; i < odometer.num_wheels; ++i) {
@@ -42,6 +57,19 @@ void odometer_to_grid(const Odometer& odometer, int grid[9][9])
         int row = wheel.idx / 9;
         int col = wheel.idx % 9;
         grid[row][col] = wheel.value;
+    }
+    // However, since we fill the squares in non-reading order, we
+    // should actually remap the numbers so that they *do* read in
+    // reading order (starting with '1' in the upper-left-most position).
+    int mapping[10] {};
+    int next_unseen_value = 1;
+    for (int i=0; i < 81; ++i) {
+        int value = grid[i/9][i%9];
+        if (value == 0) continue;
+        if (mapping[value] == 0) {
+            mapping[value] = next_unseen_value++;
+        }
+        grid[i/9][i%9] = mapping[value];
     }
 }
 
