@@ -227,6 +227,18 @@ const int sudoku_example_moose[9][9] = {
     {0,0,0,0,1,0,0,0,0},
 };
 
+const int sudoku_example_gordon_royle_unique[9][9] = {
+    {0,0,0,0,0,0,0,1,4},
+    {0,0,0,0,0,0,2,0,3},
+    {8,0,0,0,5,0,0,0,0},
+    {0,0,0,2,0,7,0,0,0},
+    {0,3,1,0,0,0,0,0,0},
+    {0,0,0,0,0,0,6,5,0},
+    {6,0,0,0,0,0,7,0,0},
+    {0,0,0,1,4,0,0,0,0},
+    {0,0,0,3,0,0,0,0,0},
+};
+
 int main()
 {
     if (count_sudoku_solutions(sudoku_example_newspaper) != 1) {
@@ -235,9 +247,11 @@ int main()
         puts("FAILED SELF TEST"); exit(1);
     } else if (count_sudoku_solutions(sudoku_example_moose) != 1) {
         puts("FAILED SELF TEST"); exit(1);
+    } else if (count_sudoku_solutions(sudoku_example_gordon_royle_unique) != 1) {
+        puts("FAILED SELF TEST"); exit(1);
     }
 
-    const auto& grid = sudoku_example_moose;
+    const auto& grid = sudoku_example_gordon_royle_unique;
 
 #if JUST_COUNT_VIABLE_GRIDS
     Taskmaster dummy;
