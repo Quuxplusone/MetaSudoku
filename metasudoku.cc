@@ -88,12 +88,21 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, 4, Taskmaster>
     }
 };
 
+template<int SHORT_CUT_FACTOR>
+constexpr size_t pow9() {
+    static_assert(SHORT_CUT_FACTOR <= 16, "9**16 is 2**50");
+    size_t result = 1;
+    for (int i = 0; i < SHORT_CUT_FACTOR; ++i) result *= 9;
+    return result;
+}
+
+template<int SHORT_CUT_FACTOR>
 int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, int wheel_idx, int next_unseen_value)
 {
-    if (wheel_idx == odometer.num_wheels) {
-        if (next_unseen_value >= 9) {
+    if (wheel_idx == odometer.num_wheels - SHORT_CUT_FACTOR) {
+        if (SHORT_CUT_FACTOR != 0 || next_unseen_value >= 9) {
 #if JUST_COUNT_VIABLE_GRIDS
-            count_of_viable_grids += 1;
+            count_of_viable_grids += pow9<SHORT_CUT_FACTOR>();
             if ((count_of_viable_grids & 0xFFFF) == 0) {
                 printf("\rmeta %zu", count_of_viable_grids);
             }
@@ -123,7 +132,7 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
     for (int value = 1; value < next_unseen_value; ++value) {
         if (has_prior_conflict(odometer, *wheel, value)) continue;
         wheel->value = value;
-        result += count_solutions_with_odometer(taskmaster, odometer, wheel_idx+1, next_unseen_value);
+        result += count_solutions_with_odometer<SHORT_CUT_FACTOR>(taskmaster, odometer, wheel_idx+1, next_unseen_value);
         if (result >= 2) {
             printf("short-circuiting with result %d!\n", result);
             return result;  // short-circuit
@@ -131,7 +140,7 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
     }
     if (next_unseen_value <= 9) {
         wheel->value = next_unseen_value;
-        result += count_solutions_with_odometer(taskmaster, odometer, wheel_idx+1, next_unseen_value+1);
+        result += count_solutions_with_odometer<SHORT_CUT_FACTOR>(taskmaster, odometer, wheel_idx+1, next_unseen_value+1);
     }
     return result;
 }
@@ -145,7 +154,7 @@ bool metasudoku_has_exactly_one_solution(const int grid[9][9])
     taskmaster.start_threads();
 
     Odometer odometer = odometer_from_grid(grid);
-    count_solutions_with_odometer(taskmaster, odometer, 0, 1);
+    count_solutions_with_odometer<0>(taskmaster, odometer, 0, 1);
 
     taskmaster.wait();
     int num_solutions = taskmaster.solutions_;
@@ -205,8 +214,12 @@ int main()
 #if JUST_COUNT_VIABLE_GRIDS
     Taskmaster dummy;
     Odometer odometer = odometer_from_grid(grid);
-    count_solutions_with_odometer(dummy, odometer, 0, 1);
-    printf("number of viable grids is %zu\n", count_of_viable_grids);
+    count_of_viable_grids = 0;
+    count_solutions_with_odometer<9>(dummy, odometer, 0, 1);
+    printf("\nWith SHORT_CUT_FACTOR=9, the number of viable grids is <= %zu\n", count_of_viable_grids);
+    count_of_viable_grids = 0;
+    count_solutions_with_odometer<0>(dummy, odometer, 0, 1);
+    printf("\nThe number of viable grids is exactly %zu\n", count_of_viable_grids);
 #else
     bool r = metasudoku_has_exactly_one_solution(grid);
     printf("metasudoku %s have exactly one solution\n", r ? "does" : "does not");
