@@ -101,6 +101,11 @@ struct RoundRobinPool {
             });
         }
     }
+    void shutdown() {
+        for (int i=0; i < NumThreads; ++i) {
+            queues_[i].shutdown();
+        }
+    }
     void wait() {
         for (int i=0; i < NumThreads; ++i) {
             queues_[i].wait();
