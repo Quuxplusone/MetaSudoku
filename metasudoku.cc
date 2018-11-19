@@ -8,6 +8,12 @@
 #include "odo-sudoku.h"
 #include "work-queue.h"
 
+#ifndef JUST_COUNT_VIABLE_GRIDS
+#define JUST_COUNT_VIABLE_GRIDS 0
+#endif
+
+static size_t count_of_viable_grids = 0;
+
 constexpr Odometer odometer_from_grid(const int grid[9][9])
 {
     Odometer odometer;
@@ -64,7 +70,6 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, 4, Taskmaster>
 
     void process(Workspace& workspace, const Odometer& odometer) {
         workspace.complete_odometer_sudoku(odometer);
-#if 1
         int solution_count = workspace.count_solutions_to_odometer_sudoku();
         if (solution_count == 1) {
             std::lock_guard<std::mutex> lk(mtx_);
@@ -79,7 +84,6 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, 4, Taskmaster>
                 throw ShutDownException();
             }
         }
-#endif
         workspace.processed += 1;
     }
 };
@@ -88,21 +92,28 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
 {
     if (wheel_idx == odometer.num_wheels) {
         if (next_unseen_value >= 9) {
+#if JUST_COUNT_VIABLE_GRIDS
+            count_of_viable_grids += 1;
+            if ((count_of_viable_grids & 0xFFFF) == 0) {
+                printf("\rmeta %zu", count_of_viable_grids);
+            }
+#else
             static size_t counter = 0;
             ++counter;
             if ((counter & 0xFFFF) == 0) {
                 size_t processed = taskmaster.count_processed();
-                printf("\rmeta %zu (%zu)", counter, processed);
+                printf("\rmeta %zu (+%zu)", counter, counter - processed);
                 if ((counter - processed) > 1000000) {
                     // Sleep and let the worker threads catch up.
                     std::this_thread::sleep_for(std::chrono::seconds(1));
-                    printf("\rmeta %zu (%zu)", counter, taskmaster.count_processed());
+                    printf("\rmeta %zu (+%zu)", counter, counter - taskmaster.count_processed());
                 }
                 fflush(stdout);
             }
             try {
                 taskmaster.push(odometer);
             } catch (const ShutDownException&) {}
+#endif
         }
         return 0;
     }
@@ -135,6 +146,7 @@ bool metasudoku_has_exactly_one_solution(const int grid[9][9])
 
     Odometer odometer = odometer_from_grid(grid);
     count_solutions_with_odometer(taskmaster, odometer, 0, 1);
+
     taskmaster.wait();
     int num_solutions = taskmaster.solutions_;
     printf("num_solutions is %d\n", num_solutions);
@@ -188,7 +200,16 @@ int main()
         puts("FAILED SELF TEST"); exit(1);
     }
 
-    bool r = metasudoku_has_exactly_one_solution(sudoku_example_17);
-    printf("result is %s\n", r ? "true" : "false");
+    const auto& grid = sudoku_example_moose;
+
+#if JUST_COUNT_VIABLE_GRIDS
+    Taskmaster dummy;
+    Odometer odometer = odometer_from_grid(grid);
+    count_solutions_with_odometer(dummy, odometer, 0, 1);
+    printf("number of viable grids is %zu\n", count_of_viable_grids);
+#else
+    bool r = metasudoku_has_exactly_one_solution(grid);
+    printf("metasudoku %s have exactly one solution\n", r ? "does" : "does not");
+#endif
     return 0;
 }

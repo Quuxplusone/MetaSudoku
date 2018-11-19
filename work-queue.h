@@ -107,11 +107,13 @@ struct RoundRobinPool {
         }
     }
     ~RoundRobinPool() {
-        for (int i=0; i < NumThreads; ++i) {
-            queues_[i].shutdown();
-        }
-        for (int i=0; i < NumThreads; ++i) {
-            workers_[i].join();
+        if (workers_[0].joinable()) {
+            for (int i=0; i < NumThreads; ++i) {
+                queues_[i].shutdown();
+            }
+            for (int i=0; i < NumThreads; ++i) {
+                workers_[i].join();
+            }
         }
     }
 };
