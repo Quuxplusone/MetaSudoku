@@ -83,6 +83,16 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, NUM_THREADS, Task
 {
     std::mutex mtx_;
     std::atomic<int> solutions_{0};
+    size_t pushed_ = 0;
+
+    void push(const Odometer& odometer) {
+        this->pushed_ += 1;
+        this->RoundRobinPool::push(odometer);
+    }
+
+    size_t count_pushed() const {
+        return pushed_;
+    }
 
     size_t count_processed() {
         size_t count = 0;
@@ -131,15 +141,18 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
                 printf("\rmeta %zu", count_of_viable_grids);
             }
 #else
-            static size_t counter = 0;
-            ++counter;
+            size_t counter = taskmaster.count_pushed();
             if ((counter & 0xFFFF) == 0) {
                 size_t processed = taskmaster.count_processed();
                 printf("\rmeta %zu (+%zu)", counter, counter - processed);
-                if ((counter - processed) > 1000000) {
+                if ((counter - processed) > 500'000 * NUM_THREADS) {
                     // Sleep and let the worker threads catch up.
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    printf("\rmeta %zu (+%zu)", counter, counter - taskmaster.count_processed());
+                    while ((counter - processed) > 50'000 * NUM_THREADS) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        processed = taskmaster.count_processed();
+                        printf("\rmeta %zu (+%zu)", counter, counter - processed);
+                    }
+                    printf("    %s               ", taskmaster.queue_sizes().c_str());
                 }
                 fflush(stdout);
             }

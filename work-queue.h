@@ -3,6 +3,7 @@
 #include <atomic>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 
 struct ProducerShutDownException {};
@@ -11,7 +12,7 @@ struct ConsumerShutDownException {};
 template<class T>
 class ConcurrentQueue {
     std::queue<T> q_;
-    std::mutex mtx_;
+    mutable std::mutex mtx_;
     bool shutdown_when_empty_ = false;
     bool shutdown_ = false;
     std::condition_variable cv_;
@@ -19,6 +20,10 @@ class ConcurrentQueue {
     std::condition_variable wait_cv_;
 
 public:
+    size_t size() const {
+        std::unique_lock<std::mutex> lk(mtx_);
+        return q_.size();
+    }
     void push(T&& t) {
         std::unique_lock<std::mutex> lk(mtx_);
         assert(!shutdown_when_empty_ && "shouldn't still be pushing in this case");
@@ -103,6 +108,16 @@ public:
         for (int i=0; i < NumThreads; ++i) {
             f(states_[i]);
         }
+    }
+
+    std::string queue_sizes() const {
+        char buffer[NumThreads * 100];
+        char *p = buffer;
+        for (int i=0; i < NumThreads; ++i) {
+            size_t n = queues_[i].size();
+            p += snprintf(p, 100, "%zu ", n);
+        }
+        return std::string(buffer, p - 1);
     }
 
     void push(Task&& task) {
