@@ -7,10 +7,6 @@
 #include "odo-sudoku.h"
 #include "work-queue.h"
 
-#ifndef JUST_COUNT_VIABLE_GRIDS
-#define JUST_COUNT_VIABLE_GRIDS 0
-#endif
-
 static size_t count_of_viable_grids = 0;
 
 Odometer odometer_from_grid(const int grid[9][9])
@@ -83,7 +79,7 @@ bool has_prior_conflict(const Odometer& odometer, const OdometerWheel& wheel, in
     return false;
 }
 
-struct Taskmaster : public RoundRobinPool<Workspace, Odometer, 4, Taskmaster>
+struct Taskmaster : public RoundRobinPool<Workspace, Odometer, NUM_THREADS, Taskmaster>
 {
     std::mutex mtx_;
     std::atomic<int> solutions_{0};
@@ -236,6 +232,42 @@ void string_to_grid(const char *line, int grid[9][9])
     }
 }
 
+bool grid_obviously_has_multiple_solutions(const int grid[9][9])
+{
+    for (int g=0; g < 3; ++g) {
+        for (int i=0; i < 3; ++i) {
+            for (int j=0; j < 3; ++j) {
+                if (i == j) continue;
+                if (true) {
+                    // Can we swap rows i and j in set g?
+                    int r1 = g*3 + i;
+                    int r2 = g*3 + j;
+                    bool non_empty = false;
+                    bool cant_swap = false;
+                    for (int col = 0; col < 9; ++col) {
+                        if (!!grid[r1][col] != !!grid[r2][col]) cant_swap = true;
+                        if (!!grid[r1][col]) non_empty = true;
+                    }
+                    if (non_empty && !cant_swap) return true;
+                }
+                if (true) {
+                    // Can we swap columns i and j in set g?
+                    int c1 = g*3 + i;
+                    int c2 = g*3 + j;
+                    bool non_empty = false;
+                    bool cant_swap = false;
+                    for (int row = 0; row < 9; ++row) {
+                        if (!!grid[row][c1] != !!grid[row][c2]) cant_swap = true;
+                        if (!!grid[row][c1]) non_empty = true;
+                    }
+                    if (non_empty && !cant_swap) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 int main()
 {
     if (count_sudoku_solutions(sudoku_example_newspaper) != 1) {
@@ -244,6 +276,10 @@ int main()
         puts("FAILED SELF TEST"); exit(1);
     } else if (count_sudoku_solutions(sudoku_example_moose) != 1) {
         puts("FAILED SELF TEST"); exit(1);
+    } else if (!grid_obviously_has_multiple_solutions(sudoku_example_17)) {
+        puts("FAILED OBVIOUSNESS SELF TEST"); exit(1);
+    } else if (!grid_obviously_has_multiple_solutions(sudoku_example_moose)) {
+        puts("FAILED OBVIOUSNESS SELF TEST"); exit(1);
     }
 
     FILE *in = fopen("gordon-royle.txt", "r");
@@ -261,6 +297,13 @@ int main()
         if (count_sudoku_solutions(grid) != 1) {
             puts("FAILED SELF TEST"); exit(1);
         }
+
+        if (grid_obviously_has_multiple_solutions(grid)) {
+            printf("."); fflush(stdout); continue;
+        } else {
+            printf("Inspecting grid %s\n", buf);
+        }
+
 #if JUST_COUNT_VIABLE_GRIDS
         Taskmaster dummy;
         Odometer odometer = odometer_from_grid(grid);

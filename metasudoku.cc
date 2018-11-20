@@ -7,10 +7,6 @@
 #include "odo-sudoku.h"
 #include "work-queue.h"
 
-#ifndef JUST_COUNT_VIABLE_GRIDS
-#define JUST_COUNT_VIABLE_GRIDS 0
-#endif
-
 static size_t count_of_viable_grids = 0;
 
 Odometer odometer_from_grid(const int grid[9][9])
@@ -83,7 +79,7 @@ bool has_prior_conflict(const Odometer& odometer, const OdometerWheel& wheel, in
     return false;
 }
 
-struct Taskmaster : public RoundRobinPool<Workspace, Odometer, 4, Taskmaster>
+struct Taskmaster : public RoundRobinPool<Workspace, Odometer, NUM_THREADS, Taskmaster>
 {
     std::mutex mtx_;
     std::atomic<int> solutions_{0};
