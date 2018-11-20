@@ -105,7 +105,7 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, NUM_THREADS, Task
             print_unique_sudoku_solution(grid);
             int found = ++solutions_;
             if (found >= 2) {
-                throw ShutDownException();
+                throw ConsumerShutDownException();
             }
         }
         workspace.processed += 1;
@@ -143,9 +143,7 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
                 }
                 fflush(stdout);
             }
-            try {
-                taskmaster.push(odometer);
-            } catch (const ShutDownException&) {}
+            taskmaster.push(odometer);
 #endif
         }
         return 0;
@@ -159,7 +157,7 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
         result += count_solutions_with_odometer<SHORT_CUT_FACTOR>(taskmaster, odometer, wheel_idx+1, next_unseen_value);
         if (result >= 2) {
             printf("short-circuiting with result %d!\n", result);
-            taskmaster.shutdown();
+            taskmaster.shutdown_from_producer_side();
             return result;  // short-circuit
         }
     }
@@ -179,8 +177,14 @@ bool metasudoku_has_exactly_one_solution(const int grid[9][9])
     taskmaster.start_threads();
 
     Odometer odometer = odometer_from_grid(grid);
-    count_solutions_with_odometer<0>(taskmaster, odometer, 0, 1);
+    try {
+        count_solutions_with_odometer<0>(taskmaster, odometer, 0, 1);
+    } catch (const ProducerShutDownException&) {
+        puts("caught the short-circuit");
+        taskmaster.shutdown_from_producer_side();
+    }
 
+    taskmaster.shutdown_when_empty();
     taskmaster.wait();
     int num_solutions = taskmaster.solutions_;
     printf("num_solutions is %d\n", num_solutions);
@@ -282,7 +286,7 @@ int main()
         puts("FAILED OBVIOUSNESS SELF TEST"); exit(1);
     }
 
-    FILE *in = fopen("gordon-royle.txt", "r");
+    FILE *in = fopen("unique-configs-as-grids.txt", "r");
     assert(in != nullptr);
     int counter = 0;
     char buf[100];

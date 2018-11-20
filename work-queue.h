@@ -5,20 +5,25 @@
 #include <queue>
 #include <thread>
 
-struct ShutDownException {};
+struct ProducerShutDownException {};
+struct ConsumerShutDownException {};
 
 template<class T>
-struct ConcurrentQueue {
+class ConcurrentQueue {
     std::queue<T> q_;
     std::mutex mtx_;
-    std::condition_variable cv_;
+    bool shutdown_when_empty_ = false;
     bool shutdown_ = false;
-    std::condition_variable shutdown_cv_;
+    std::condition_variable cv_;
+    bool consumer_has_been_notified_ = false;
+    std::condition_variable wait_cv_;
 
+public:
     void push(T&& t) {
         std::unique_lock<std::mutex> lk(mtx_);
+        assert(!shutdown_when_empty_ && "shouldn't still be pushing in this case");
         if (shutdown_) {
-            throw ShutDownException();
+            throw ProducerShutDownException();
         }
         q_.push(std::move(t));
         lk.unlock();
@@ -26,8 +31,9 @@ struct ConcurrentQueue {
     }
     void push(const T& t) {
         std::unique_lock<std::mutex> lk(mtx_);
+        assert(!shutdown_when_empty_ && "shouldn't still be pushing in this case");
         if (shutdown_) {
-            throw ShutDownException();
+            throw ProducerShutDownException();
         }
         q_.push(t);
         lk.unlock();
@@ -36,33 +42,54 @@ struct ConcurrentQueue {
     T pop() {
         std::unique_lock<std::mutex> lk(mtx_);
         while (q_.empty()) {
-            cv_.wait(lk);
-            if (shutdown_) {
-                throw ShutDownException();
+            if (shutdown_ || shutdown_when_empty_) {
+                consumer_has_been_notified_ = true;
+                wait_cv_.notify_all();
+                throw ConsumerShutDownException();
             }
+            cv_.wait(lk);
+        }
+        if (shutdown_) {
+            consumer_has_been_notified_ = true;
+            wait_cv_.notify_all();
+            throw ConsumerShutDownException();
         }
         T result = std::move(q_.front());
         q_.pop();
         lk.unlock();
         return result;
     }
-    void shutdown() {
+    void shutdown_from_producer_side() {
         std::unique_lock<std::mutex> lk(mtx_);
-        lk.unlock();
         shutdown_ = true;
-        cv_.notify_one();
-        shutdown_cv_.notify_one();
+        lk.unlock();
+        cv_.notify_all();
+    }
+    void shutdown_from_consumer_side() {
+        std::unique_lock<std::mutex> lk(mtx_);
+        shutdown_ = true;
+        consumer_has_been_notified_ = true;
+        lk.unlock();
+        cv_.notify_all();
+        wait_cv_.notify_all();
+    }
+    void shutdown_when_empty() {
+        std::unique_lock<std::mutex> lk(mtx_);
+        shutdown_when_empty_ = true;
+        lk.unlock();
+        cv_.notify_all();
     }
     void wait() {
         std::unique_lock<std::mutex> lk(mtx_);
-        while (!shutdown_) {
-            shutdown_cv_.wait(lk);
+        assert(shutdown_ || shutdown_when_empty_);
+        while (!consumer_has_been_notified_) {
+            wait_cv_.wait(lk);
         }
     }
 };
 
 template<class State, class Task, int NumThreads, class CRTP>
-struct RoundRobinPool {
+class RoundRobinPool {
     std::thread workers_[NumThreads];
     ConcurrentQueue<Task> queues_[NumThreads];
     State states_[NumThreads];
@@ -70,6 +97,7 @@ struct RoundRobinPool {
 
     CRTP& as_crtp() { return static_cast<CRTP&>(*this); }
 
+public:
     template<class F>
     void for_each_state(const F& f) {
         for (int i=0; i < NumThreads; ++i) {
@@ -92,18 +120,26 @@ struct RoundRobinPool {
             workers_[i] = std::thread([this, i]() {
                 while (true) {
                     try {
-                        as_crtp().process(states_[i], queues_[i].pop());
-                    } catch (const ShutDownException&) {
-                        queues_[i].shutdown();
+                        auto task = queues_[i].pop();
+                        as_crtp().process(states_[i], std::move(task));
+                    } catch (const ConsumerShutDownException&) {
+                        queues_[i].shutdown_from_consumer_side();
                         return;
+                    } catch (...) {
+                        assert(false);
                     }
                 }
             });
         }
     }
-    void shutdown() {
+    void shutdown_from_producer_side() {
         for (int i=0; i < NumThreads; ++i) {
-            queues_[i].shutdown();
+            queues_[i].shutdown_from_producer_side();
+        }
+    }
+    void shutdown_when_empty() {
+        for (int i=0; i < NumThreads; ++i) {
+            queues_[i].shutdown_when_empty();
         }
     }
     void wait() {
@@ -114,7 +150,8 @@ struct RoundRobinPool {
     ~RoundRobinPool() {
         if (workers_[0].joinable()) {
             for (int i=0; i < NumThreads; ++i) {
-                queues_[i].shutdown();
+                queues_[i].shutdown_from_producer_side();
+                queues_[i].shutdown_from_consumer_side();
             }
             for (int i=0; i < NumThreads; ++i) {
                 workers_[i].join();
