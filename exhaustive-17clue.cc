@@ -153,6 +153,7 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
                         printf("\rmeta %zu (+%zu)", counter, counter - processed);
                     }
                     printf("    %s               ", taskmaster.queue_sizes().c_str());
+                    taskmaster.rebalance_queues();
                 }
                 fflush(stdout);
             }

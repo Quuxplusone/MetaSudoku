@@ -64,6 +64,15 @@ public:
         lk.unlock();
         return result;
     }
+    bool try_pop(T& value) {
+        std::unique_lock<std::mutex> lk(mtx_);
+        if (q_.empty()) {
+            return false;
+        }
+        value = std::move(q_.front());
+        q_.pop();
+        return true;
+    }
     void shutdown_from_producer_side() {
         std::unique_lock<std::mutex> lk(mtx_);
         shutdown_ = true;
@@ -118,6 +127,28 @@ public:
             p += snprintf(p, 100, "%zu ", n);
         }
         return std::string(buffer, p - 1);
+    }
+
+    void rebalance_queues() {
+        // No pushing should be happening during this operation.
+        // Popping can still be happening, though.
+        int biggest_queue_index = 0;
+        size_t biggest_queue_size = 0;
+        for (int i=0; i < NumThreads; ++i) {
+            size_t n = queues_[i].size();
+            if (n > biggest_queue_size) {
+                biggest_queue_index = i;
+                biggest_queue_size = n;
+            }
+        }
+        auto& q = queues_[biggest_queue_index];
+        Task task;
+        for (int i=0; i < biggest_queue_size; ++i) {
+            if (!q.try_pop(task)) {
+                break;
+            }
+            this->push(std::move(task));
+        }
     }
 
     void push(Task&& task) {
