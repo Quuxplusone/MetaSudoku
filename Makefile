@@ -1,4 +1,4 @@
-EXTRA_DEFINES=-DJUST_COUNT_VIABLE_GRIDS=0 -DNUM_THREADS=4
+EXTRA_DEFINES=-DJUST_COUNT_VIABLE_GRIDS=0 -DNUM_THREADS=6
 
 a.out: metasudoku.cc sudoku.cc sudoku.h dance.cc dance.h odo-sudoku.h work-queue.h
 	$(CXX) -std=c++14 -flto -O3 dance.cc -c

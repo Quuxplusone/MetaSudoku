@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <chrono>
 
 #include "dance.h"
 #include "sudoku.h"
@@ -122,6 +123,13 @@ struct Taskmaster : public RoundRobinPool<Workspace, Odometer, NUM_THREADS, Task
     }
 };
 
+static size_t grids_per_second(size_t grids)
+{
+    static auto start = std::chrono::high_resolution_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start);
+    return (1000 * grids / (elapsed.count() + 1));
+}
+
 template<int SHORT_CUT_FACTOR>
 constexpr size_t pow9() {
     static_assert(SHORT_CUT_FACTOR <= 16, "9**16 is 2**50");
@@ -144,13 +152,13 @@ int count_solutions_with_odometer(Taskmaster& taskmaster, Odometer& odometer, in
             size_t counter = taskmaster.count_pushed();
             if ((counter & 0xFFFF) == 0) {
                 size_t processed = taskmaster.count_processed();
-                printf("\rmeta %zu (+%zu)", counter, counter - processed);
-                if ((counter - processed) > 500'000 * NUM_THREADS) {
+                printf("\rmeta %zu (+%zu) %zu/sec", processed, counter - processed, grids_per_second(processed));
+                if ((counter - processed) > 250'000 * NUM_THREADS) {
                     // Sleep and let the worker threads catch up.
                     while ((counter - processed) > 50'000 * NUM_THREADS) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
                         processed = taskmaster.count_processed();
-                        printf("\rmeta %zu (+%zu)", counter, counter - processed);
+                        printf("\rmeta %zu (+%zu) %zu/sec", processed, counter - processed, grids_per_second(processed));
                     }
                     printf("    %s               ", taskmaster.queue_sizes().c_str());
                     taskmaster.rebalance_queues();
