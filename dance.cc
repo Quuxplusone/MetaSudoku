@@ -5,13 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #define USE_HEURISTIC 1
 
 void *DanceMatrix::Malloc(size_t n)
 {
-    assert(n % 8 == 0);
     arena_used_ += n;
     if (arena_used_ <= sizeof memory_arena_) return &memory_arena_[arena_used_ - n];
     printf("Out of memory in Malloc(%zu)!\n", n);

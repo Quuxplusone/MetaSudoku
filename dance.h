@@ -6,7 +6,6 @@
 
 #include <type_traits>
 #include <limits.h>
-#include <assert.h>
 
 extern char dance_memory_arena[];
 
@@ -40,7 +39,6 @@ struct data_object {
     void make_spacer_node() { column = nullptr; }
     bool is_in_row() const { return column != nullptr; }
     data_object *leftmost_node_in_row() {
-        assert(this->is_in_row());
         data_object *result = this;
         while (result[-1].is_in_row()) {
             --result;
@@ -48,7 +46,6 @@ struct data_object {
         return result;
     }
     data_object *rightmost_node_in_row() {
-        assert(this->is_in_row());
         data_object *result = this;
         while (result[1].is_in_row()) {
             ++result;
