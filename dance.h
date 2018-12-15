@@ -1,7 +1,12 @@
 #pragma once
 
+#include <stdio.h>
+#include <sstream>
+#include <string>
+
 #include <type_traits>
 #include <limits.h>
+#include <assert.h>
 
 extern char dance_memory_arena[];
 
@@ -30,21 +35,39 @@ struct dance_result {
 struct column_object;
 
 struct data_object {
-    DancePtr<data_object> up, down, left, right;
+    DancePtr<data_object> up, down;
     DancePtr<column_object> column;
-    template<class T> T& as() { return *(T*)this; }
+    void make_spacer_node() { column = nullptr; }
+    bool is_in_row() const { return column != nullptr; }
+    data_object *leftmost_node_in_row() {
+        assert(this->is_in_row());
+        data_object *result = this;
+        while (result[-1].is_in_row()) {
+            --result;
+        }
+        return result;
+    }
+    data_object *rightmost_node_in_row() {
+        assert(this->is_in_row());
+        data_object *result = this;
+        while (result[1].is_in_row()) {
+            ++result;
+        }
+        return result;
+    }
 };
 
 struct column_object : public data_object {
     int size;
     int name;
+    DancePtr<column_object> left, right;
 };
 
 class DanceMatrix {
 public:
     explicit DanceMatrix() = default;
     void init(int ncols);
-    void addrow(int nentries, int *entries);
+    void addrow(int nentries, const int *entries);
 
     template<class F>
     int solve(const F& f)
@@ -79,21 +102,32 @@ private:
         if (true) {
             int minsize = INT_MAX;
             for (auto j = head_.right; j != &head_; j = j->right) {
-                auto jj = &j->as<column_object>();
-                if (jj->size < minsize) {
-                    c = jj;
-                    minsize = jj->size;
+                if (j->size < minsize) {
+                    c = j;
+                    minsize = j->size;
                     if (minsize <= 1) break;
                 }
             }
         }
+
+auto row_to_string = [](data_object *r) {
+    std::ostringstream oss;
+    oss << "entries=";
+    for (auto *j = r->leftmost_node_in_row(); j->is_in_row(); ++j) {
+        oss << j->column->name << " ";
+    }
+    auto result = oss.str();
+    result.pop_back();
+    return result;
+};
 
         /* Cover column |c|. */
         dancing_cover(c);
 
         for (auto r = c->down; r != c; r = r->down) {
             solution[k] = r;
-            for (auto j = r->right; j != r; j = j->right) {
+            for (auto *j = r->leftmost_node_in_row(); j->is_in_row(); ++j) {
+                if (j == r) continue;
                 dancing_cover(j->column);
             }
             dance_result subresult = this->dancing_search(k+1, f, solution);
@@ -104,7 +138,8 @@ private:
             }
             r = solution[k];
             c = r->column;
-            for (auto j = r->left; j != r; j = j->left) {
+            for (auto *j = r->rightmost_node_in_row(); j->is_in_row(); --j) {
+                if (j == r) continue;
                 dancing_uncover(j->column);
             }
         }
@@ -121,7 +156,8 @@ private:
         cright->left = cleft;
         cleft->right = cright;
         for (auto i = c->down; i != c; i = i->down) {
-            for (auto j = i->right; j != i; j = j->right) {
+            for (auto *j = i->leftmost_node_in_row(); j->is_in_row(); ++j) {
+                if (j == i) continue;
                 auto jup = j->up;
                 auto jdown = j->down;
                 jdown->up = jup;
@@ -134,7 +170,8 @@ private:
     static void dancing_uncover(struct column_object *c)
     {
         for (auto i = c->up; i != c; i = i->up) {
-            for (auto j = i->left; j != i; j = j->left) {
+            for (auto *j = i->rightmost_node_in_row(); j->is_in_row(); --j) {
+                if (j == i) continue;
                 j->column->size += 1;
                 j->down->up = j;
                 j->up->down = j;

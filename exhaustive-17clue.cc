@@ -296,16 +296,19 @@ bool grid_obviously_has_multiple_solutions(const int grid[9][9])
 
 int main()
 {
+    print_unique_sudoku_solution(sudoku_example_newspaper);
+
+
     if (count_sudoku_solutions(sudoku_example_newspaper) != 1) {
-        puts("FAILED SELF TEST"); exit(1);
+        puts("FAILED SELF TEST 1"); exit(1);
     } else if (count_sudoku_solutions(sudoku_example_17) != 1) {
-        puts("FAILED SELF TEST"); exit(1);
+        puts("FAILED SELF TEST 2"); exit(1);
     } else if (count_sudoku_solutions(sudoku_example_moose) != 1) {
-        puts("FAILED SELF TEST"); exit(1);
+        puts("FAILED SELF TEST 3"); exit(1);
     } else if (!grid_obviously_has_multiple_solutions(sudoku_example_17)) {
-        puts("FAILED OBVIOUSNESS SELF TEST"); exit(1);
+        puts("FAILED OBVIOUSNESS SELF TEST 1"); exit(1);
     } else if (!grid_obviously_has_multiple_solutions(sudoku_example_moose)) {
-        puts("FAILED OBVIOUSNESS SELF TEST"); exit(1);
+        puts("FAILED OBVIOUSNESS SELF TEST 2"); exit(1);
     }
 
     FILE *in = fopen("unique-configs-as-grids.txt", "r");

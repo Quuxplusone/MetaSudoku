@@ -143,10 +143,16 @@ static dance_result print_unique_sudoku_result(int n, struct data_object **sol)
         int constraint[4];
         int row, col, val;
         row = col = val = 0;  /* shut up "unused" warning from compiler */
-        constraint[0] = sol[i]->left->column->name;
-        constraint[1] = sol[i]->column->name;
-        constraint[2] = sol[i]->right->column->name;
-        constraint[3] = sol[i]->right->right->column->name;
+        auto *r = sol[i]->leftmost_node_in_row();
+        assert(r[0].is_in_row());
+        assert(r[1].is_in_row());
+        assert(r[2].is_in_row());
+        assert(r[3].is_in_row());
+        assert(!r[4].is_in_row());
+        constraint[0] = r[0].column->name;
+        constraint[1] = r[1].column->name;
+        constraint[2] = r[2].column->name;
+        constraint[3] = r[3].column->name;
         for (int j=0; j < 4; ++j) {
             if (constraint[j] < 81) {
                 row = constraint[j] / 9;

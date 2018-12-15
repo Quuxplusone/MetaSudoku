@@ -5,12 +5,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #define USE_HEURISTIC 1
 
 void *DanceMatrix::Malloc(size_t n)
 {
-    n = (n + 7) & ~7;
+    assert(n % 8 == 0);
     arena_used_ += n;
     if (arena_used_ <= sizeof memory_arena_) return &memory_arena_[arena_used_ - n];
     printf("Out of memory in Malloc(%zu)!\n", n);
@@ -41,13 +42,14 @@ void DanceMatrix::init(int cols)
             columns_[i].right = &head_;
         }
     }
+
+    data_object *initial_spacer = (struct data_object *)Malloc(sizeof *initial_spacer);
+    initial_spacer->make_spacer_node();
 }
 
-void DanceMatrix::addrow(int nentries, int *entries)
+void DanceMatrix::addrow(int nentries, const int *entries)
 {
-    struct data_object *h = nullptr;
-
-    struct data_object *news = (struct data_object *)Malloc(nentries * sizeof *news);
+    data_object *news = (data_object *)Malloc((nentries+1) * sizeof *news);
     for (int i=0; i < nentries; ++i) {
         struct data_object *o = &news[i];
         o->column = &columns_[entries[i]];
@@ -56,15 +58,6 @@ void DanceMatrix::addrow(int nentries, int *entries)
         o->up = o->down->up;
         o->down->up = o;
         o->up->down = o;
-        if (h != nullptr) {
-            o->left = h->left;
-            o->right = h;
-            o->left->right = o;
-            o->right->left = o;
-        } else {
-            o->left = o;
-            o->right = o;
-            h = o;
-        }
     }
+    news[nentries].make_spacer_node();
 }
