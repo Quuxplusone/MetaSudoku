@@ -47,9 +47,17 @@ public:
     void addrow(int nentries, int *entries);
 
     template<class F>
-    int solve(F f)
+    int solve(const F& f)
     {
-        struct data_object **solution = (struct data_object **)Malloc(ncolumns_ * sizeof *solution);
+        data_object **solution = (struct data_object **)Malloc(ncolumns_ * sizeof *solution);
+        dance_result result = this->dancing_search(0, f, solution);
+        return result.count;
+    }
+
+    template<int RowsInSolution, class F>
+    int solve(const F& f)
+    {
+        data_object *solution[RowsInSolution];
         dance_result result = this->dancing_search(0, f, solution);
         return result.count;
     }
@@ -58,7 +66,7 @@ private:
     void *Malloc(size_t n);
 
     template<class F>
-    dance_result dancing_search(int k, F f, struct data_object **solution)
+    dance_result dancing_search(int k, const F& f, struct data_object **solution)
     {
         dance_result result = {0, false};
 

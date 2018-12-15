@@ -59,11 +59,11 @@ int Workspace::count_solutions_to_odometer_sudoku()
         result.short_circuit = (++count >= 2);
         return result;
     };
-    return mat.solve(std::ref(f));
+    return mat.solve<81>(std::ref(f));
 }
 
 template<class F>
-static int solve_sudoku_with_callback(const int grid[9][9], F f)
+static int solve_sudoku_with_callback(const int grid[9][9], const F& f)
 {
     int constraint[4];
     int ncols = 9*(9+9+9)+81;
@@ -111,7 +111,7 @@ static int solve_sudoku_with_callback(const int grid[9][9], F f)
         }
     }
     mat.nrows_ = nrows;
-    return mat.solve(f);
+    return mat.solve<81>(f);
 }
 
 int count_sudoku_solutions(const int grid[9][9])

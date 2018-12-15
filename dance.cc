@@ -10,7 +10,7 @@
 
 void *DanceMatrix::Malloc(size_t n)
 {
-    n = (n + 8) & ~8;
+    n = (n + 7) & ~7;
     arena_used_ += n;
     if (arena_used_ <= sizeof memory_arena_) return &memory_arena_[arena_used_ - n];
     printf("Out of memory in Malloc(%zu)!\n", n);
