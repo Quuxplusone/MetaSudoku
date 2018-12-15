@@ -1,9 +1,5 @@
 #pragma once
 
-#include <stdio.h>
-#include <sstream>
-#include <string>
-
 #include <type_traits>
 #include <limits.h>
 
@@ -106,17 +102,6 @@ private:
                 }
             }
         }
-
-auto row_to_string = [](data_object *r) {
-    std::ostringstream oss;
-    oss << "entries=";
-    for (auto *j = r->leftmost_node_in_row(); j->is_in_row(); ++j) {
-        oss << j->column->name << " ";
-    }
-    auto result = oss.str();
-    result.pop_back();
-    return result;
-};
 
         /* Cover column |c|. */
         dancing_cover(c);
