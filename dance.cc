@@ -41,21 +41,6 @@ void DanceMatrix::init(int cols)
         }
     }
 
-    data_object *initial_spacer = (struct data_object *)Malloc(sizeof *initial_spacer);
-    initial_spacer->make_spacer_node();
-}
-
-void DanceMatrix::addrow(int nentries, const int *entries)
-{
-    data_object *news = (data_object *)Malloc((nentries+1) * sizeof *news);
-    for (int i=0; i < nentries; ++i) {
-        struct data_object *o = &news[i];
-        o->column = &columns_[entries[i]];
-        o->column->size += 1;
-        o->down = &columns_[entries[i]];
-        o->up = o->down->up;
-        o->down->up = o;
-        o->up->down = o;
-    }
-    news[nentries].make_spacer_node();
+    static_assert(sizeof(data_object) == 32);
+    while (size_t(&memory_arena_[arena_used_]) % 128 != 0) ++arena_used_;
 }

@@ -32,21 +32,15 @@ struct column_object;
 struct data_object {
     DancePtr<data_object> up, down;
     DancePtr<column_object> column;
-    void make_spacer_node() { column = nullptr; }
-    bool is_in_row() const { return column != nullptr; }
+    char padding[8];
     data_object *leftmost_node_in_row() {
         data_object *result = this;
-        while (result[-1].is_in_row()) {
-            --result;
-        }
+        result = (data_object*)(size_t(result) & ~127);
         return result;
     }
     data_object *rightmost_node_in_row() {
-        data_object *result = this;
-        while (result[1].is_in_row()) {
-            ++result;
-        }
-        return result;
+        data_object *result = leftmost_node_in_row();
+        return result + 3;
     }
 };
 
@@ -60,7 +54,8 @@ class DanceMatrix {
 public:
     explicit DanceMatrix() = default;
     void init(int ncols);
-    void addrow(int nentries, const int *entries);
+
+    void addrow(const int *entries);
 
     template<class F>
     int solve(const F& f)
@@ -108,7 +103,9 @@ private:
 
         for (auto r = c->down; r != c; r = r->down) {
             solution[k] = r;
-            for (auto *j = r->leftmost_node_in_row(); j->is_in_row(); ++j) {
+            auto *first = r->leftmost_node_in_row();
+            auto *last = first + 4;
+            for (auto *j = first; j != last; ++j) {
                 if (j == r) continue;
                 dancing_cover(j->column);
             }
@@ -120,7 +117,9 @@ private:
             }
             r = solution[k];
             c = r->column;
-            for (auto *j = r->rightmost_node_in_row(); j->is_in_row(); --j) {
+            first = r->leftmost_node_in_row() + 3;
+            last = first - 4;
+            for (auto *j = first; j != last; --j) {
                 if (j == r) continue;
                 dancing_uncover(j->column);
             }
@@ -138,7 +137,9 @@ private:
         cright->left = cleft;
         cleft->right = cright;
         for (auto i = c->down; i != c; i = i->down) {
-            for (auto *j = i->leftmost_node_in_row(); j->is_in_row(); ++j) {
+            auto *first = i->leftmost_node_in_row();
+            auto *last = first + 4;
+            for (auto *j = first; j != last; ++j) {
                 if (j == i) continue;
                 auto jup = j->up;
                 auto jdown = j->down;
@@ -152,7 +153,9 @@ private:
     static void dancing_uncover(struct column_object *c)
     {
         for (auto i = c->up; i != c; i = i->up) {
-            for (auto *j = i->rightmost_node_in_row(); j->is_in_row(); --j) {
+            auto *first = i->leftmost_node_in_row() + 3;
+            auto *last = first - 4;
+            for (auto *j = first; j != last; --j) {
                 if (j == i) continue;
                 j->column->size += 1;
                 j->down->up = j;
@@ -172,3 +175,18 @@ private:
     size_t arena_used_ = 0;
     alignas(8) char memory_arena_[120000];
 };
+
+inline void DanceMatrix::addrow(const int *entries)
+{
+    data_object *news = (data_object *)Malloc(4 * sizeof *news);
+    for (int i=0; i < 4; ++i) {
+        struct data_object *o = &news[i];
+        o->column = &columns_[entries[i]];
+        o->column->size += 1;
+        o->down = &columns_[entries[i]];
+        o->up = o->down->up;
+        o->down->up = o;
+        o->up->down = o;
+    }
+}
+

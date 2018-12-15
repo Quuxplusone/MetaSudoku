@@ -23,7 +23,7 @@ void Workspace::begin_odometer_sudoku(const int grid[9][9])
             constraint[1] = 81 + 9*col + value-1;
             constraint[2] = 162 + 9*box + value-1;
             constraint[3] = 243 + (9*row+col);
-            mat.addrow(4, constraint);
+            mat.addrow(constraint);
         }
         nrows += 9;
     }
@@ -46,7 +46,7 @@ void Workspace::complete_odometer_sudoku(const Odometer& odometer)
         constraint[1] = 81 + 9*col + value-1;
         constraint[2] = 162 + 9*box + value-1;
         constraint[3] = 243 + (9*row+col);
-        mat.addrow(4, constraint);
+        mat.addrow(constraint);
     }
     mat.nrows_ += odometer.num_wheels;
 }
@@ -93,7 +93,7 @@ static int solve_sudoku_with_callback(const int grid[9][9], const F& f)
                 constraint[1] = 81 + 9*i + grid[j][i]-1;
                 constraint[2] = 162 + 9*box + grid[j][i]-1;
                 constraint[3] = 243 + (9*j+i);
-                mat.addrow(4, constraint);
+                mat.addrow(constraint);
                 ++nrows;
                 seen_this_row[grid[j][i]-1] = 1;
             }
@@ -104,7 +104,7 @@ static int solve_sudoku_with_callback(const int grid[9][9], const F& f)
                     constraint[1] = 81 + 9*i + k;
                     constraint[2] = 162 + 9*box + k;
                     constraint[3] = 243 + (9*j+i);
-                    mat.addrow(4, constraint);
+                    mat.addrow(constraint);
                     ++nrows;
                 }
             }
@@ -144,11 +144,6 @@ static dance_result print_unique_sudoku_result(int n, struct data_object **sol)
         int row, col, val;
         row = col = val = 0;  /* shut up "unused" warning from compiler */
         auto *r = sol[i]->leftmost_node_in_row();
-        assert(r[0].is_in_row());
-        assert(r[1].is_in_row());
-        assert(r[2].is_in_row());
-        assert(r[3].is_in_row());
-        assert(!r[4].is_in_row());
         constraint[0] = r[0].column->name;
         constraint[1] = r[1].column->name;
         constraint[2] = r[2].column->name;
