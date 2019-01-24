@@ -11,3 +11,9 @@ exhaustive-17clue: exhaustive-17clue.cc sudoku.cc sudoku.h dance.cc dance.h odo-
 	$(CXX) -std=c++14 -flto -O3 sudoku.cc -c
 	$(CXX) -std=c++14 -flto -O3 exhaustive-17clue.cc -c $(EXTRA_DEFINES)
 	$(CXX) -std=c++14 -flto -O3 exhaustive-17clue.o sudoku.o dance.o -o exhaustive-17clue
+
+de: discrete-encampments.cc
+	$(CXX) -std=c++14 -flto -O3 discrete-encampments.cc -o de
+
+de3: discrete-encampments-3color.cc
+	$(CXX) -std=c++14 -flto -O3 discrete-encampments-3color.cc -o de3
