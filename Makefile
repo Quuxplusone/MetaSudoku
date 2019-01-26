@@ -17,3 +17,6 @@ de: discrete-encampments.cc
 
 de3: discrete-encampments-3color.cc
 	$(CXX) -std=c++14 -flto -O3 discrete-encampments-3color.cc -o de3
+
+de4: discrete-encampments-4color.cc
+	$(CXX) -std=c++14 -flto -O3 discrete-encampments-4color.cc -o de4
