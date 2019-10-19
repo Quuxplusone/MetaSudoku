@@ -21,7 +21,7 @@ struct Solver {
         static SolutionState worst_solution(int n) {
             if (n >= 13*13) return SolutionState{13-1, 12, 0, 0, 12};
             if (n >= 12*12) return SolutionState{11-1, 10, 0, 0, 10};
-            if (n >= 11*11) return SolutionState{9-1, 8, 0, 0, 8};
+            if (n >= 11*11) return SolutionState{11-1, 8, 0, 0, 8};
             if (n >= 10*10) return SolutionState{8-1, 7, 0, 0, 7};
             if (n >= 9*9) return SolutionState{7-1, 6, 0, 0, 5};
             if (n >= 8*8) return SolutionState{6-1, 5, 0, 0, 4};
