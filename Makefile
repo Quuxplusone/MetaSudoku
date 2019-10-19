@@ -20,3 +20,6 @@ de3: discrete-encampments-3color.cc
 
 de4: discrete-encampments-4color.cc
 	$(CXX) -std=c++14 -flto -O3 discrete-encampments-4color.cc -o de4
+
+dek: discrete-encampments-kamenetsky-heuristic.cc
+	$(CXX) -std=c++14 -flto -O3 discrete-encampments-kamenetsky-heuristic.cc -o dek

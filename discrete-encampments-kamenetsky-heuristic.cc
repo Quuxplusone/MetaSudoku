@@ -1,0 +1,495 @@
+// Computes the maximum number of queens with C colours that you can place on a NxN grid such that
+// queens of different colour do not attack each other.
+//
+// This program can be used to compute the best known solutions for A250000, as well as solutions for the
+// derivative sequences such as A308632 and A328283.
+//
+// The program uses a version of hill climbing. The key to the approach is a very fast mutation operator.
+// Mutations involve changing the value of a single cell: empty to a queen, queen to an empty or
+// queen of colour C1 to colour C2. Checking whether such a mutation improves the score takes time O(C),
+// while making the actual change and updating auxiliary variables takes time O(N).
+//
+// The scoreType can play an important role and produce different results.
+// I found that the "extra" options seems to be the best, but you need to play around with it.
+// You can also change the number of random starting solutions Q in solveMany().
+//
+// Compilation: javac A250000.java
+// Usage: java A250000 N C
+// N is the grid size
+// C is the number of colours
+//
+// Dmitry Kamenetsky, 17th of October 2019.
+
+// Ported to C++ and refactored by Arthur O'Dwyer, 19 October 2019.
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <algorithm>
+#include <array>
+#include <fstream>
+#include <iomanip>
+#include <map>
+#include <memory>
+#include <random>
+#include <sstream>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+enum ScoreType { Extra = 0, Max = 1 };
+struct ScoreType_Extra { static constexpr int value = ScoreType::Extra; };
+struct ScoreType_Max { static constexpr int value = ScoreType::Max; };
+
+class A250000_Base {
+protected:
+    struct CNFG { int c, n, f, g; };
+private:
+    virtual void do_step() = 0;
+    virtual std::string do_getBestString() const = 0;
+    virtual CNFG do_getCNFG() const = 0;
+public:
+    virtual ~A250000_Base() = default;
+    void step() {
+        this->do_step();
+    }
+    std::string getBestString() const {
+        return this->do_getBestString();
+    }
+    std::pair<int, int> getCN() const { auto cnfg = this->do_getCNFG(); return {cnfg.c, cnfg.n}; }
+    int getFCN() const { auto cnfg = this->do_getCNFG(); return cnfg.f; }
+    int getGCN() const { auto cnfg = this->do_getCNFG(); return cnfg.g; }
+};
+
+struct RCV {
+    int r, c, val;
+};
+
+using RNG = std::mt19937;
+
+template<int N, int C>
+class A250000 : public A250000_Base {
+    static constexpr int Q = 16;
+
+    template<class T>
+    using Board = std::array<std::array<T, N>, N>;
+
+    RNG gen_;
+    std::vector<RCV> ind_;
+    int bestScore_ = INT_MIN;
+    int bestScores_[2*Q];
+    Board<int> bestA[2*Q] {};
+    std::string currentBestString_;
+    int currentBestMinQueens_ = 0;
+    int currentBestMaxQueens_ = 0;
+
+public:
+    A250000() {
+        for (int r=0; r < N; ++r) {
+            for (int c=0; c < N; ++c) {
+                for (int val = 0; val <= C; ++val) {
+                    ind_.push_back({r, c, val});
+                }
+            }
+        }
+        for (int& elt : bestScores_) {
+            elt = INT_MIN;
+        }
+    }
+
+private:
+    static bool same_abs(int x, int y) {
+        return x == y || x == -y;
+    }
+    static bool attacks(int r, int c, int r2, int c2) {
+        return r2==r || c2==c || same_abs(r2 - r, c2 - c);
+    }
+
+    int randint0(int n) {
+        return gen_() % n;
+    }
+
+    std::string do_getBestString() const override {
+        return currentBestString_;
+    }
+    CNFG do_getCNFG() const override { return { C, N, currentBestMinQueens_, currentBestMaxQueens_ }; }
+
+    template<class ST>
+    struct StructuredScore {
+        int score = 0;
+        int bad = 0;
+        int queens[C+1] {};
+        int counts[C+1][N][N] {};
+
+        static StructuredScore from_board(const Board<int>& a) {
+            StructuredScore s;
+
+            for (int r=0; r<N; r++) {
+                for (int c=0; c<N; c++) {
+                    int val = a[r][c];
+                    if (val == 0) continue;   //empty cell
+
+                    s.queens[val] += 1;
+
+                    for (int r2=0; r2<N; r2++) {
+                        for (int c2=0; c2<N; c2++) {
+                            if (attacks(r, c, r2, c2)) {
+                                s.counts[val][r2][c2] += 1;
+                                if (a[r2][c2] != 0 && a[r2][c2] != val) {
+                                    s.bad += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            s.update_just_score();
+            return s;
+        }
+
+        int minQueens() const {
+            int r = INT_MAX;
+            for (int i=1; i <= C; ++i) {
+                if (queens[i] < r) r = queens[i];
+            }
+            return r;
+        }
+        int maxQueens() const {
+            int r = INT_MIN;
+            for (int i=1; i <= C; ++i) {
+                if (queens[i] > r) r = queens[i];
+            }
+            return r;
+        }
+
+        void update_just_score() {
+            int minq = minQueens();
+            int maxq = maxQueens();
+
+            int extra = 0;
+            for (int i=1; i <= C; ++i) {
+                if (queens[i] == minq) {
+                    extra += 1;
+                }
+            }
+            assert(1 <= extra && extra <= C);
+
+            if (ST::value == ScoreType::Extra) {
+                score = ((minq - bad) * 256*256) + (C - extra);
+            } else if (ST::value == ScoreType::Max) {
+                score = ((minq - bad) * 256*256) + C + maxq;
+            } else {
+                assert(false);
+            }
+        }
+
+        void update_all_but_counts(const Board<int>& a, int r, int c, int val) {
+            // We *are* the score of 'a' right now.
+            // Update us to be the score of 'a' if 'a[r][c]' were replaced with 'val'.
+
+            int old = a[r][c];
+            if (old == val) return;
+
+            queens[old]--;
+            queens[val]++;
+
+            if (old == 0 && val != 0) {
+                //added queen
+                for (int k=1; k <= C; ++k) {
+                    if (k != val) bad += 2*counts[k][r][c];
+                }
+            } else if (old != 0 && val==0) {
+                //removed queen
+                for (int k=1; k<=C; ++k) {
+                    if (k != old) bad -= 2*counts[k][r][c];
+                }
+            } else {
+                //changed queen colours
+                for (int k=1; k <= C; ++k) {
+                    if (k != old) bad -= 2*counts[k][r][c];
+                    if (k != val) bad += 2*counts[k][r][c];
+                }
+                bad -= 2;    //to handle double-counting itself
+            }
+            update_just_score();
+        }
+
+        void update_just_counts(const Board<int>& a, int r, int c, int val) {
+            int old = a[r][c];
+            assert(old != val);
+
+            //horizontal
+            for (int c2=0; c2<N; c2++) {
+                if (c2 == c) continue;
+                if (old != 0) counts[old][r][c2]--;
+                if (val != 0) counts[val][r][c2]++;
+            }
+
+            //vertical
+            for (int r2=0; r2<N; r2++) {
+                if (r2==r) continue;
+                if (old!=0) counts[old][r2][c]--;
+                if (val!=0) counts[val][r2][c]++;
+            }
+
+            int min = std::min(r,c);
+            for (int r2 = r-min, c2 = c-min; r2<N && c2<N; r2++, c2++) {
+                if (r2==r && c2==c) continue;
+                if (old != 0) counts[old][r2][c2]--;
+                if (val != 0) counts[val][r2][c2]++;
+            }
+
+            min = std::min(r,N-1-c);
+            for (int r2 = r-min, c2 = c+min; r2<N && c2>=0; r2++,c2--) {
+                if (r2==r && c2==c) continue;
+                if (old != 0) counts[old][r2][c2]--;
+                if (val != 0) counts[val][r2][c2]++;
+            }
+
+            //same spot
+            if (old != 0) counts[old][r][c]--;
+            if (val != 0) counts[val][r][c]++;
+        }
+    };
+
+
+    void do_step() override {
+        for (int q=0; q < 2*Q; q++) {
+            Board<int> a = bestA[q];
+
+            // First make between 1 and 5 random edits to the board.
+            make_random_edits(a, 1 + randint0(5));
+
+            // Then, jiggle the solution until it cannot be improved by ANY single edit.
+            if (q < Q) {
+                auto s = StructuredScore<ScoreType_Extra>::from_board(a);
+                optimizeChangesFast(a, s);
+
+                if (s.score >= bestScores_[q]) {
+                    bestScores_[q] = s.score;
+                    bestA[q] = a;
+                }
+                if (s.score > bestScores_[Q+q]) {
+                    bestScores_[Q+q] = s.score;
+                    bestA[Q+q] = a;
+                }
+
+                if (s.score > bestScore_) {
+                    currentBestString_ = prettyPrint(s.score, a);
+                    bestScore_ = s.score;
+                    currentBestMinQueens_ = s.minQueens();
+                    currentBestMaxQueens_ = s.maxQueens();
+                }
+            } else {
+                auto s = StructuredScore<ScoreType_Max>::from_board(a);
+                optimizeChangesFast(a, s);
+
+                if (s.score >= bestScores_[q]) {
+                    bestScores_[q] = s.score;
+                    bestA[q] = a;
+                }
+
+                if (s.score > bestScore_) {
+                    currentBestString_ = prettyPrint(s.score, a);
+                    bestScore_ = s.score;
+                    currentBestMinQueens_ = s.minQueens();
+                    currentBestMaxQueens_ = s.maxQueens();
+                }
+            }
+        }
+    }
+
+    void make_random_edits(Board<int>& a, int num_changes) {
+        for (int i=0; i < num_changes; ++i) {
+            int r = randint0(N);
+            int c = randint0(N);
+            a[r][c] = randint0(C+1);
+        }
+    }
+
+    template<class StructuredScore>
+    void optimizeChangesFast(Board<int>& a, StructuredScore& s)
+    {
+        while (true) {
+            std::shuffle(ind_.begin(), ind_.end(), gen_);
+            bool changed = false;
+
+            for (const auto& rcv : ind_) {
+                maybeAdjust(a, s, changed, rcv.r, rcv.c, rcv.val);
+            }
+            if (!changed) {
+                break;
+            }
+        }
+    }
+
+    template<class StructuredScore>
+    static void maybeAdjust(
+        Board<int>& a,
+        StructuredScore& s,
+        bool& changed,
+        int r, int c, int val)
+    {
+        // Try changing a[r][c] to val, and see if that improves this position.
+
+        int old = a[r][c];
+
+        if (old == val) {
+            return;   //no change
+        }
+        StructuredScore s2 = s;
+        s2.update_all_but_counts(a, r, c, val);
+
+        if (s2.score >= s.score) {
+            if (s2.score > s.score) {
+                changed = true;
+            }
+            s = std::move(s2);
+            s.update_just_counts(a, r, c, val);
+            a[r][c] = val;
+        }
+    }
+
+    static char to_digit(int i) {
+        return ".123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i];
+    }
+
+    static std::string prettyQueens(const int (&queens)[C+1])
+    {
+        int temp[C];
+        std::copy(queens+1, queens+C+1, temp);
+        std::sort(temp, temp+C);  // in ascending order
+        std::ostringstream result;
+        result << "min=" << temp[0] << " max=" << temp[C-1] << " all=";
+        for (int i=0; i < C; ++i) {
+            if (i != 0) result << '+';
+            result << temp[i];
+        }
+        return std::move(result).str();
+    }
+
+    static std::string prettyPrint(int score, const Board<int>& a)
+    {
+        std::ostringstream result;
+        result << "score " << score << "\n";
+
+        int queens[C+1] {};
+        int totalQueens = 0;
+
+        for (int r=0; r<N; r++) {
+            for (int c=0; c<N; c++) {
+                queens[a[r][c]]++;
+                if (a[r][c] > 0) totalQueens++;
+            }
+        }
+
+        result << "N=" << N << " C=" << C << " Q " << prettyQueens(queens) << "\n";
+        result << "Queens by colour:\n";
+        for (int k=1; k <= C; k++) result << k << ": " << queens[k] << "\n";
+        for (int i=0; i<N; i++) {
+            for (int k=0; k<N; k++) {
+                result << to_digit(a[i][k]);
+            }
+            result << '\n';
+        }
+        result << '\n';
+        return std::move(result).str();
+    }
+};
+
+template<int N>
+class A250000<N, 0> : public A250000_Base {
+    void do_step() override { exit(0); }
+    std::string do_getBestString() const override { return ""; }
+    CNFG do_getCNFG() const override { return { 0, N, 0, 0 }; }
+};
+
+template<int C>
+class A250000<0, C> : public A250000_Base {
+    void do_step() override { exit(0); }
+    std::string do_getBestString() const override { return ""; }
+    CNFG do_getCNFG() const override { return { C, 0, 0, 0 }; }
+};
+
+template<>
+class A250000<0, 0> : public A250000_Base {
+    void do_step() override { exit(0); }
+    std::string do_getBestString() const override { return ""; }
+    CNFG do_getCNFG() const override { return { 0, 0, 0, 0 }; }
+};
+
+template<size_t N, size_t... Cs>
+std::unique_ptr<A250000_Base> make_A250000_helper(std::index_sequence<Cs...>, int c) {
+    std::unique_ptr<A250000_Base> (*actions[])() = {
+        []() -> std::unique_ptr<A250000_Base> { return std::make_unique<A250000<N, Cs>>(); } ...
+    };
+    assert(0 <= c && c < sizeof...(Cs));
+    return actions[c]();
+}
+
+template<size_t... Ns, class CSeq>
+std::unique_ptr<A250000_Base> make_A250000(std::index_sequence<Ns...>, CSeq, int n, int c) {
+    std::unique_ptr<A250000_Base> (*actions[])(int) = {
+        [](int c) { return make_A250000_helper<Ns>(CSeq{}, c); } ...
+    };
+    assert(0 <= n && n < sizeof...(Ns));
+    return actions[n](c);
+}
+
+std::string make_triangle(const std::map<std::pair<int, int>, int>& fcn)
+{
+    std::ostringstream result;
+    result << "    k=       1  2  3  4  5  6  ...\n";
+    result << "          .\n";
+    result << "    n=1   .  1  0\n";
+    result << "    n=2   .  4  0  0\n";
+    for (int n = 3; n <= 16; ++n) {
+        result << "    n=" << std::setw(2) << std::left << n << "   " << std::setw(3) << std::right << n*n;
+        for (int c = 2; c <= n+1; ++c) {
+            auto it = fcn.find({c,n});
+            int value = 0;
+            if (it != fcn.end()) {
+                value = it->second;
+            } else if (n == c) {
+                value = (n == 2 || n == 3) ? 0 : 1;
+            }
+            result << std::setw(3) << std::right << value;
+        }
+        result << "\n";
+    }
+    return std::move(result).str();
+}
+
+int main() {
+    std::vector<std::unique_ptr<A250000_Base>> all;
+    for (int N = 3; N <= 16; ++N) {
+        for (int C = 2; C < N; ++C) {
+            all.push_back(
+                make_A250000(
+                    std::make_index_sequence<17>{},
+                    std::make_index_sequence<17>{},
+                    N, C
+                )
+            );
+        }
+    }
+
+    std::map<std::pair<int, int>, int> fcn;
+    std::map<std::pair<int, int>, int> gcn;
+    while (true) {
+        std::string output;
+        for (const auto& a : all) {
+            for (int i=0; i < 8; ++i) {
+                a->step();
+            }
+            output += a->getBestString();
+            fcn[a->getCN()] = a->getFCN();
+            gcn[a->getCN()] = a->getGCN();
+        }
+        std::ofstream outfile("dek-out.txt");
+        outfile << make_triangle(fcn) << "\n\n";
+        outfile << make_triangle(gcn) << "\n\n";
+        outfile << output;
+    }
+}
