@@ -384,9 +384,7 @@ private:
             }
         }
 
-        result << "N=" << N << " C=" << C << " Q " << prettyQueens(queens) << "\n";
-        result << "Queens by colour:\n";
-        for (int k=1; k <= C; k++) result << k << ": " << queens[k] << "\n";
+        result << "N=" << N << " C=" << C << " " << prettyQueens(queens) << "\n";
         for (int i=0; i<N; i++) {
             for (int k=0; k<N; k++) {
                 result << to_digit(a[i][k]);
