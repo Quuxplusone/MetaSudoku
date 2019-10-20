@@ -328,7 +328,7 @@ private:
         for (int i=0; i < num_changes; ++i) {
             int r = randint0(N);
             int c = randint0(N);
-            a[r][c] = randint0(C+1);
+            a[r][c] = (a[r][c] + 1 + randint0(C)) % (C+1);
         }
     }
 
