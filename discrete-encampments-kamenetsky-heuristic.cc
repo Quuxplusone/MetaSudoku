@@ -32,7 +32,6 @@
 #include <iomanip>
 #include <map>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -67,7 +66,31 @@ struct RCV {
     int r, c, val;
 };
 
-using RNG = std::mt19937;
+struct xorshift128p {
+    using result_type = uint64_t;
+
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return uint64_t(-1); }
+
+    // https://stackoverflow.com/a/34432126/1424877
+    result_type operator()() {
+        uint64_t a = m_state[0];
+        uint64_t b = m_state[1];
+
+        m_state[0] = b;
+        a ^= a << 23;
+        a ^= a >> 18;
+        a ^= b;
+        a ^= b >> 5;
+        m_state[1] = a;
+
+        return a + b;
+    }
+
+private:
+    // splitmix64 seeded with "1"
+    uint64_t m_state[2] = { 0x5692161D100B05E5uLL, 0x910A2DEC89025CC1uLL };
+};
 
 template<int N, int C>
 class A250000 : public A250000_Base {
@@ -76,7 +99,7 @@ class A250000 : public A250000_Base {
     template<class T>
     using Board = std::array<std::array<T, N>, N>;
 
-    RNG gen_;
+    xorshift128p gen_;
     std::vector<RCV> ind_;
     int bestScore_ = INT_MIN;
     int bestScores_[2*Q];
