@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <map>
@@ -459,7 +460,15 @@ std::string make_triangle(const std::map<std::pair<int, int>, int>& fcn)
     return std::move(result).str();
 }
 
+template<class Duration>
+size_t in_ms(Duration d)
+{
+    return static_cast<size_t>(std::chrono::duration_cast<std::chrono::milliseconds>(d).count());
+}
+
 int main() {
+    auto prestart_time = std::chrono::high_resolution_clock::now();
+
     std::vector<std::unique_ptr<A250000_Base>> all;
     for (int N = 3; N <= 16; ++N) {
         for (int C = 2; C < N; ++C) {
@@ -473,9 +482,12 @@ int main() {
         }
     }
 
+    auto start_time = std::chrono::high_resolution_clock::now();
+    printf("done setup in %zu ms\n", in_ms(start_time - prestart_time));
+
     std::map<std::pair<int, int>, int> fcn;
     std::map<std::pair<int, int>, int> gcn;
-    while (true) {
+    for (int iteration = 1; true; ++iteration) {
         std::string output;
         for (const auto& a : all) {
             for (int i=0; i < 8; ++i) {
@@ -489,5 +501,8 @@ int main() {
         outfile << make_triangle(fcn) << "\n\n";
         outfile << make_triangle(gcn) << "\n\n";
         outfile << output;
+
+        auto finish_time = std::chrono::high_resolution_clock::now();
+        printf("%d iterations in %zu ms\n", iteration, in_ms(finish_time - start_time));
     }
 }
