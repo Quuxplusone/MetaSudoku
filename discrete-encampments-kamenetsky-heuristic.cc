@@ -426,22 +426,55 @@ class A250000<N, C, false> : public A250000_Base {
     CNFG do_getCNFG() const override { return { C, N, 0, 0 }; }
 };
 
-template<size_t N, size_t... Cs>
-std::unique_ptr<A250000_Base> make_A250000_helper(std::index_sequence<Cs...>, int c) {
-    std::unique_ptr<A250000_Base> (*actions[])() = {
-        []() -> std::unique_ptr<A250000_Base> { return std::make_unique<A250000<N, Cs>>(); } ...
-    };
-    assert(0 <= c && c < sizeof...(Cs));
-    return actions[c]();
+template<int Min, int... Is>
+auto make_int_range_impl(std::integer_sequence<int, Is...>) {
+    return std::integer_sequence<int, Is+Min...>{};
 }
 
-template<size_t... Ns, class CSeq>
-std::unique_ptr<A250000_Base> make_A250000(std::index_sequence<Ns...>, CSeq, int n, int c) {
-    std::unique_ptr<A250000_Base> (*actions[])(int) = {
-        [](int c) { return make_A250000_helper<Ns>(CSeq{}, c); } ...
+template<int Min, int Max, std::enable_if_t<(Min <= Max), int> = 0>
+auto make_int_range() {
+    return make_int_range_impl<Min>(std::make_integer_sequence<int, (Max - Min) + 1>());
+}
+
+template<int Min, int Max, std::enable_if_t<(Min > Max), int> = 0>
+auto make_int_range() {
+    return std::integer_sequence<int>{};
+}
+static_assert(std::is_same<decltype(make_int_range<2,5>()), std::integer_sequence<int,2,3,4,5> >::value, "");
+static_assert(std::is_same<decltype(make_int_range<2,2>()), std::integer_sequence<int,2> >::value, "");
+
+template<int N, int... Cs>
+std::unique_ptr<A250000_Base> make_A250000_c(std::integer_sequence<int, Cs...>, int c) {
+    struct {
+        int c;
+        std::unique_ptr<A250000_Base> (*action)();
+    } array[] = {
+        { Cs, []() -> std::unique_ptr<A250000_Base> { return std::make_unique<A250000<N, Cs>>(); } } ...
     };
-    assert(0 <= n && n < sizeof...(Ns));
-    return actions[n](c);
+    for (const auto& elt : array) {
+        if (c == elt.c) return elt.action();
+    }
+    fprintf(stderr, "oops! n=%d c=%d\n", N, c);
+    assert(false);
+}
+
+template<int... Ns>
+std::unique_ptr<A250000_Base> make_A250000_n(std::integer_sequence<int, Ns...>, int n, int c) {
+    struct {
+        int n;
+        std::unique_ptr<A250000_Base> (*action)(int);
+    } array[] = {
+        { Ns, [](int c) { return make_A250000_c<Ns>(make_int_range<2, Ns-1>(), c); } } ...
+    };
+    for (const auto& elt : array) {
+        if (n == elt.n) return elt.action(c);
+    }
+    fprintf(stderr, "oops! n=%d c=%d\n", n, c);
+    assert(false);
+}
+
+std::unique_ptr<A250000_Base> make_A250000(int n, int c) {
+    return make_A250000_n(make_int_range<3, 16>(), n, c);
 }
 
 std::string make_triangle(const std::map<std::pair<int, int>, int>& fcn)
@@ -477,19 +510,10 @@ size_t in_ms(Duration d)
 int main() {
     auto prestart_time = std::chrono::high_resolution_clock::now();
 
-    constexpr int MIN_N = 3;
-    constexpr int MAX_N = 16;
-
     std::vector<std::unique_ptr<A250000_Base>> all;
-    for (int N = MIN_N; N <= MAX_N; ++N) {
-        for (int C = 2; C < N; ++C) {
-            all.push_back(
-                make_A250000(
-                    std::make_index_sequence<MAX_N+1>{},
-                    std::make_index_sequence<MAX_N+1>{},
-                    N, C
-                )
-            );
+    for (int n = 3; n <= 16; ++n) {
+        for (int c = 2; c < n; ++c) {
+            all.push_back(make_A250000(n, c));
         }
     }
 
