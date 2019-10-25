@@ -92,7 +92,7 @@ private:
     uint64_t m_state[2] = { 0x5692161D100B05E5uLL, 0x910A2DEC89025CC1uLL };
 };
 
-template<int N, int C>
+template<int N, int C, bool Interesting = (2 <= C && C < N)>
 class A250000 : public A250000_Base {
     static constexpr int Q = 16;
 
@@ -277,7 +277,6 @@ private:
         }
     };
 
-
     void do_step() override {
         for (int q=0; q < 2*Q; q++) {
             Board<int> a = bestA[q];
@@ -420,25 +419,11 @@ private:
     }
 };
 
-template<int N>
-class A250000<N, 0> : public A250000_Base {
+template<int N, int C>
+class A250000<N, C, false> : public A250000_Base {
     void do_step() override { exit(0); }
     std::string do_getBestString() const override { return ""; }
-    CNFG do_getCNFG() const override { return { 0, N, 0, 0 }; }
-};
-
-template<int C>
-class A250000<0, C> : public A250000_Base {
-    void do_step() override { exit(0); }
-    std::string do_getBestString() const override { return ""; }
-    CNFG do_getCNFG() const override { return { C, 0, 0, 0 }; }
-};
-
-template<>
-class A250000<0, 0> : public A250000_Base {
-    void do_step() override { exit(0); }
-    std::string do_getBestString() const override { return ""; }
-    CNFG do_getCNFG() const override { return { 0, 0, 0, 0 }; }
+    CNFG do_getCNFG() const override { return { C, N, 0, 0 }; }
 };
 
 template<size_t N, size_t... Cs>
@@ -492,13 +477,16 @@ size_t in_ms(Duration d)
 int main() {
     auto prestart_time = std::chrono::high_resolution_clock::now();
 
+    constexpr int MIN_N = 3;
+    constexpr int MAX_N = 16;
+
     std::vector<std::unique_ptr<A250000_Base>> all;
-    for (int N = 3; N <= 16; ++N) {
+    for (int N = MIN_N; N <= MAX_N; ++N) {
         for (int C = 2; C < N; ++C) {
             all.push_back(
                 make_A250000(
-                    std::make_index_sequence<17>{},
-                    std::make_index_sequence<17>{},
+                    std::make_index_sequence<MAX_N+1>{},
+                    std::make_index_sequence<MAX_N+1>{},
                     N, C
                 )
             );
