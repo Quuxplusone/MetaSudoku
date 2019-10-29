@@ -38,6 +38,9 @@
 #include <utility>
 #include <vector>
 
+static constexpr int MIN_N = 3;
+static constexpr int MAX_N = 16;
+
 enum ScoreType { Extra = 0, Max = 1 };
 struct ScoreType_Extra { static constexpr int value = ScoreType::Extra; };
 struct ScoreType_Max { static constexpr int value = ScoreType::Max; };
@@ -395,7 +398,6 @@ private:
     static std::string prettyPrint(int score, const Board<int>& a)
     {
         std::ostringstream result;
-        result << "score " << score << "\n";
 
         int queens[C+1] {};
         int totalQueens = 0;
@@ -474,7 +476,7 @@ std::unique_ptr<A250000_Base> make_A250000_n(std::integer_sequence<int, Ns...>, 
 }
 
 std::unique_ptr<A250000_Base> make_A250000(int n, int c) {
-    return make_A250000_n(make_int_range<3, 16>(), n, c);
+    return make_A250000_n(make_int_range<MIN_N, MAX_N>(), n, c);
 }
 
 std::string make_triangle(const std::map<std::pair<int, int>, int>& fcn)
@@ -484,7 +486,7 @@ std::string make_triangle(const std::map<std::pair<int, int>, int>& fcn)
     result << "          .\n";
     result << "    n=1   .  1  0\n";
     result << "    n=2   .  4  0  0\n";
-    for (int n = 3; n <= 16; ++n) {
+    for (int n = MIN_N; n <= MAX_N; ++n) {
         result << "    n=" << std::setw(2) << std::left << n << "   " << std::setw(3) << std::right << n*n;
         for (int c = 2; c <= n+1; ++c) {
             auto it = fcn.find({c,n});
@@ -511,7 +513,7 @@ int main() {
     auto prestart_time = std::chrono::high_resolution_clock::now();
 
     std::vector<std::unique_ptr<A250000_Base>> all;
-    for (int n = 3; n <= 16; ++n) {
+    for (int n = MIN_N; n <= MAX_N; ++n) {
         for (int c = 2; c < n; ++c) {
             all.push_back(make_A250000(n, c));
         }
