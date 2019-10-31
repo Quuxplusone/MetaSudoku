@@ -281,6 +281,7 @@ private:
     };
 
     void do_step() override {
+        std::shuffle(ind_.begin(), ind_.end(), gen_);
         for (int q=0; q < 2*Q; q++) {
             Board<int> a = bestA[q];
 
@@ -338,7 +339,6 @@ private:
     void optimizeChangesFast(Board<int>& a, StructuredScore& s)
     {
         while (true) {
-            std::shuffle(ind_.begin(), ind_.end(), gen_);
             bool changed = false;
 
             for (const auto& rcv : ind_) {
