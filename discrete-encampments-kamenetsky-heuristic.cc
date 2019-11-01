@@ -38,8 +38,8 @@
 #include <utility>
 #include <vector>
 
-static constexpr int MIN_N = 14;
-static constexpr int MAX_N = 20;
+static constexpr int MIN_N = 18;
+static constexpr int MAX_N = 22;
 static const char FILENAME[] = "dek-out.txt";
 
 enum ScoreType { Extra = 0, Max = 1 };
@@ -585,10 +585,10 @@ std::string make_triangle(const std::map<NC, std::shared_ptr<A250000_Base>>& m, 
             auto it = m.find(NC{n,c});
             if (it != m.end()) {
                 int value = getValue(*it->second);
-                result << std::setw(3) << std::right << value;
+                result << ' ' << std::setw(2) << std::right << value;
             } else if (c == n) {
                 int value = (n == 2 || n == 3) ? 0 : 1;
-                result << std::setw(3) << std::right << value;
+                result << ' ' << std::setw(2) << std::right << value;
             } else if (c > n) {
                 result << std::setw(3) << std::right << 0;
             } else {
