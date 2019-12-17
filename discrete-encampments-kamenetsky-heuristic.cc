@@ -46,6 +46,100 @@ enum ScoreType { Extra = 0, Max = 1 };
 struct ScoreType_Extra { static constexpr int value = ScoreType::Extra; };
 struct ScoreType_Max { static constexpr int value = ScoreType::Max; };
 
+struct Util {
+    static char to_digit(int i) {
+        assert(0 <= i && i <= 35);
+        return ".123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i];
+    }
+    static int from_digit(char ch) {
+        const char *alphabet = ".123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const char *p = strchr(alphabet, ch);
+        assert(p != nullptr);
+        return (p - alphabet);
+    }
+    static bool same_abs(int x, int y) {
+        return x == y || x == -y;
+    }
+    static bool attacks(int r, int c, int r2, int c2) {
+        return r2==r || c2==c || same_abs(r2 - r, c2 - c);
+    }
+};
+
+class SolutionVerifier {
+    std::vector<std::vector<int>> data_;
+    int c_, f_, g_;
+
+public:
+    template<size_t N>
+    explicit SolutionVerifier(const std::array<std::array<int, N>, N>& a, int c) {
+        for (size_t i=0; i < N; ++i) {
+            data_.push_back(std::vector<int>(a[i].begin(), a[i].end()));
+        }
+        c_ = c;
+        auto queens = army_sizes();
+        f_ = queens.front();
+        g_ = queens.back();
+    }
+
+    explicit SolutionVerifier(const std::string& bestString) {
+        int n, c, f, g;
+        int rc = std::sscanf(bestString.c_str(), "N=%d C=%d min=%d max=%d all=", &n, &c, &f, &g);
+        assert(rc == 4 || !"malformed solution in input file");
+        const char *p = strchr(bestString.c_str(), '\n');
+        assert(p != nullptr);
+        ++p;
+        data_.resize(n, std::vector<int>(n));
+        for (int i=0; i < n; ++i) {
+            for (int k=0; k < n; ++k) {
+                data_[i][k] = Util::from_digit(*p++);
+            }
+            assert(*p == '\n');
+            ++p;
+        }
+        assert(*p == '\0');
+        c_ = c;
+        f_ = f;
+        g_ = g;
+    }
+
+    bool hasNoBadQueens() const {
+        int n = data_.size();
+        for (int i=0; i < n; ++i) {
+            for (int j=0; j < n; ++j) {
+                if (data_[i][j] == 0) continue;
+                for (int i2 = 0; i2 < n; ++i2) {
+                    for (int j2 = 0; j2 < n; ++j2) {
+                        if (data_[i2][j2] == 0 || data_[i2][j2] == data_[i][j]) continue;
+                        if (Util::attacks(i, j, i2, j2)) return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool hasCorrectFandG() const {
+        auto queens = army_sizes();
+        return (f_ == queens.front() && g_ == queens.back());
+    }
+
+private:
+    std::vector<int> army_sizes() const {
+        std::vector<int> queens(c_);
+        int n = data_.size();
+        for (int r=0; r<n; ++r) {
+            for (int c=0; c<n; ++c) {
+                int val = data_[r][c];
+                if (val == 0) continue;   //empty cell
+                assert(1 <= val && val <= c_);
+                queens[val-1] += 1;
+            }
+        }
+        std::sort(queens.begin(), queens.end());
+        return queens;
+    }
+};
+
 class A250000_Base {
 protected:
     struct NCFG { int n, c, f, g; };
@@ -60,6 +154,9 @@ public:
         this->do_step();
     }
     void parseBestString(const std::string& bestString) {
+        auto sv = SolutionVerifier(bestString);
+        assert(sv.hasNoBadQueens() || !"non-solution in input file");
+        assert(sv.hasCorrectFandG() || !"miscounted solution in input file");
         this->do_parseBestString(bestString);
     }
     std::string getBestString() const {
@@ -167,13 +264,6 @@ public:
     }
 
 private:
-    static bool same_abs(int x, int y) {
-        return x == y || x == -y;
-    }
-    static bool attacks(int r, int c, int r2, int c2) {
-        return r2==r || c2==c || same_abs(r2 - r, c2 - c);
-    }
-
     int randint0(int n) {
         return gen_() % n;
     }
@@ -202,7 +292,7 @@ private:
 
                     for (int r2=0; r2<N; r2++) {
                         for (int c2=0; c2<N; c2++) {
-                            if (attacks(r, c, r2, c2)) {
+                            if (Util::attacks(r, c, r2, c2)) {
                                 s.counts[val][r2][c2] += 1;
                                 if (a[r2][c2] != 0 && a[r2][c2] != val) {
                                     s.bad += 1;
@@ -344,10 +434,16 @@ private:
                 }
 
                 if (s.score > bestScore_) {
-                    currentBestString_ = prettyPrint(a);
-                    bestScore_ = s.score;
-                    currentBestMinQueens_ = s.minQueens();
-                    currentBestMaxQueens_ = s.maxQueens();
+                    auto sv = SolutionVerifier(a, C);
+                    if (sv.hasNoBadQueens()) {
+                        currentBestString_ = prettyPrint(a);
+                        bestScore_ = s.score;
+                        currentBestMinQueens_ = s.minQueens();
+                        currentBestMaxQueens_ = s.maxQueens();
+                    } else {
+                        printf("ERROR! This board contains bad queens!");
+                        printf("%s\n", prettyPrint(a).c_str());
+                    }
                 }
             } else {
                 auto s = StructuredScore<ScoreType_Max>::from_board(a);
@@ -359,10 +455,16 @@ private:
                 }
 
                 if (s.score > bestScore_) {
-                    currentBestString_ = prettyPrint(a);
-                    bestScore_ = s.score;
-                    currentBestMinQueens_ = s.minQueens();
-                    currentBestMaxQueens_ = s.maxQueens();
+                    auto sv = SolutionVerifier(a, C);
+                    if (sv.hasNoBadQueens()) {
+                        currentBestString_ = prettyPrint(a);
+                        bestScore_ = s.score;
+                        currentBestMinQueens_ = s.minQueens();
+                        currentBestMaxQueens_ = s.maxQueens();
+                    } else {
+                        printf("ERROR! This board contains bad queens!");
+                        printf("%s\n", prettyPrint(a).c_str());
+                    }
                 }
             }
         }
@@ -418,18 +520,6 @@ private:
         }
     }
 
-    static char to_digit(int i) {
-        assert(0 <= i && i <= 35);
-        return ".123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i];
-    }
-
-    static int from_digit(char ch) {
-        const char *alphabet = ".123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const char *p = strchr(alphabet, ch);
-        assert(p != nullptr);
-        return (p - alphabet);
-    }
-
     static std::string prettyQueens(const int (&queens)[C+1])
     {
         int temp[C];
@@ -461,7 +551,7 @@ private:
         result << "N=" << N << " C=" << C << " " << prettyQueens(queens) << "\n";
         for (int i=0; i<N; i++) {
             for (int k=0; k<N; k++) {
-                result << to_digit(a[i][k]);
+                result << Util::to_digit(a[i][k]);
             }
             result << '\n';
         }
@@ -470,18 +560,12 @@ private:
 
     static Board<int> prettyUnprint(const std::string& bestString) {
         Board<int> a;
-        int n, c, f, g;
-        int rc = std::sscanf(bestString.c_str(), "N=%d C=%d min=%d max=%d all=", &n, &c, &f, &g);
-        assert(rc == 4 || !"malformed solution in input file");
-        assert(n == N && c == C);
-        assert(f <= N*N / C);
-        assert(f <= g && g <= N*N - f*(C-1));
         const char *p = strchr(bestString.c_str(), '\n');
         assert(p != nullptr);
         ++p;
         for (int i=0; i < N; ++i) {
             for (int k=0; k < N; ++k) {
-                a[i][k] = from_digit(*p++);
+                a[i][k] = Util::from_digit(*p++);
             }
             assert(*p == '\n');
             ++p;
@@ -635,7 +719,7 @@ void maybe_read_solutions_from_file(const char *filename, std::map<NC, std::shar
             }
             auto it = m.find(NC{n, c});
             if (it == m.end()) {
-                it = m.emplace(NC{n,c}, std::make_shared<Parrot>(n, c)).first;
+                it = m.emplace(NC{n, c}, std::make_shared<Parrot>(n, c)).first;
             }
             it->second->parseBestString(bestString);
 
