@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -38,8 +39,8 @@
 #include <utility>
 #include <vector>
 
-static constexpr int MIN_N = 18;
-static constexpr int MAX_N = 22;
+static constexpr int MIN_N = 14;
+static constexpr int MAX_N = 30;
 static const char FILENAME[] = "dek-out.txt";
 
 enum ScoreType { Extra = 0, Max = 1 };
@@ -187,6 +188,10 @@ struct xorshift128p {
         return a + b;
     }
 
+    void discard(int n) {
+        while (n--) (*this)();
+    }
+
 private:
     // splitmix64 seeded with "1"
     uint64_t m_state[2] = { 0x5692161D100B05E5uLL, 0x910A2DEC89025CC1uLL };
@@ -251,6 +256,8 @@ class A250000 : public A250000_Base {
 
 public:
     A250000() {
+        gen_.discard(time(nullptr) & 0xFFF);
+
         for (int r=0; r < N; ++r) {
             for (int c=0; c < N; ++c) {
                 for (int val = 0; val <= C; ++val) {
