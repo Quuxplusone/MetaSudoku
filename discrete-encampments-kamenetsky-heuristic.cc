@@ -39,13 +39,14 @@
 #include <utility>
 #include <vector>
 
-static constexpr int MIN_N = 14;
+static constexpr int MIN_N = 12;
 static constexpr int MAX_N = 30;
 static const char FILENAME[] = "dek-out.txt";
 
-enum ScoreType { Extra = 0, Max = 1 };
+enum ScoreType { Extra = 0, Max = 1, Sorted = 2 };
 struct ScoreType_Extra { static constexpr int value = ScoreType::Extra; };
 struct ScoreType_Max { static constexpr int value = ScoreType::Max; };
+struct ScoreType_Sorted { static constexpr int value = ScoreType::Sorted; };
 
 struct Util {
     static char to_digit(int i) {
@@ -340,7 +341,15 @@ private:
             }
             assert(1 <= extra && extra <= C);
 
-            if (ST::value == ScoreType::Extra) {
+            if (ST::value == ScoreType::Sorted) {
+                int sorted_queens[C+1];
+                memcpy(sorted_queens, queens, (C+1) * sizeof(int));
+                std::sort(sorted_queens+1, sorted_queens+C+1);
+                score = (sorted_queens[1] - bad);
+                score = 140*score + (sorted_queens[2] - bad);
+                if constexpr (C >= 3) { score = 140*score + (sorted_queens[3] - bad); }
+                if constexpr (C >= 4) { score = 140*score + (sorted_queens[4] - bad); }
+            } else if (ST::value == ScoreType::Extra) {
                 score = ((minq - bad) * 256*256) + (C - extra);
             } else if (ST::value == ScoreType::Max) {
                 score = ((minq - bad) * 256*256) + C + maxq;
@@ -428,7 +437,7 @@ private:
 
             // Then, jiggle the solution until it cannot be improved by ANY single edit.
             if (q < Q) {
-                auto s = StructuredScore<ScoreType_Extra>::from_board(a);
+                auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
                 optimizeChangesFast(a, s);
 
                 if (s.score >= bestScores_[q]) {
@@ -453,7 +462,7 @@ private:
                     }
                 }
             } else {
-                auto s = StructuredScore<ScoreType_Max>::from_board(a);
+                auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
                 optimizeChangesFast(a, s);
 
                 if (s.score >= bestScores_[q]) {
@@ -583,11 +592,11 @@ private:
 
     void do_parseBestString(const std::string& bestString) override {
         Board<int> a = prettyUnprint(bestString);
-        auto s = StructuredScore<ScoreType_Extra>::from_board(a);
+        auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
         bestA[0] = a;
         bestScores_[0] = s.score;
 
-        auto sm = StructuredScore<ScoreType_Max>::from_board(a);
+        auto sm = StructuredScore<ScoreType_Sorted>::from_board(a);
         bestA[Q] = a;
         bestScores_[Q] = sm.score;
         bestScore_ = sm.score;
