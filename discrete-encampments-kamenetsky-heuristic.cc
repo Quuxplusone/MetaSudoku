@@ -147,6 +147,7 @@ protected:
 private:
     virtual void do_step() = 0;
     virtual void do_parseBestString(const std::string& bestString) = 0;
+    virtual void do_parseSmallerBestString(const std::string& bestString) = 0;
     virtual std::string do_getBestString() const = 0;
     virtual NCFG do_getNCFG() const = 0;
 public:
@@ -159,6 +160,12 @@ public:
         assert(sv.hasNoBadQueens() || !"non-solution in input file");
         assert(sv.hasCorrectFandG() || !"miscounted solution in input file");
         this->do_parseBestString(bestString);
+    }
+    void parseSmallerBestString(std::string bestString) {
+        auto sv = SolutionVerifier(bestString);
+        assert(sv.hasNoBadQueens() || !"non-solution in input file");
+        assert(sv.hasCorrectFandG() || !"miscounted solution in input file");
+        this->do_parseSmallerBestString(bestString);
     }
     std::string getBestString() const {
         return this->do_getBestString();
@@ -219,6 +226,7 @@ public:
 
 private:
     void do_step() override {}
+    void do_parseSmallerBestString(const std::string&) override {}
     void do_parseBestString(const std::string& bestString) override {
         bestString_ = bestString;
         int n, c, f, g;
@@ -596,6 +604,24 @@ private:
         currentBestMinQueens_ = s.minQueens();
         currentBestMaxQueens_ = s.maxQueens();
     }
+
+    void do_parseSmallerBestString(const std::string& bestString) override {
+        Board<int> a = prettyUnprint(bestString);
+        auto s = StructuredScore<ScoreType_Extra>::from_board(a);
+        bestA[1] = a;
+        bestScores_[1] = s.score;
+
+        auto sm = StructuredScore<ScoreType_Extra>::from_board(a);
+        bestA[Q+1] = a;
+        bestScores_[Q+1] = sm.score;
+
+        if (bestScore_ < sm.score) {
+            bestScore_ = sm.score;
+            currentBestString_ = prettyPrint(a);
+            currentBestMinQueens_ = s.minQueens();
+            currentBestMaxQueens_ = s.maxQueens();
+        }
+    }
 };
 
 template<int N, int C>
@@ -603,6 +629,7 @@ class A250000<N, C, false> : public A250000_Base {
     void do_step() override { exit(0); }
     std::string do_getBestString() const override { return ""; }
     NCFG do_getNCFG() const override { return { N, C, 0, 0 }; }
+    void do_parseSmallerBestString(const std::string&) override {}
     void do_parseBestString(const std::string&) override {}
 };
 
@@ -701,6 +728,34 @@ void write_solutions_to_file(const char *filename, const std::map<NC, std::share
     }
 }
 
+static std::string expandSolution(int by, std::string s)
+{
+    assert(by == 1);
+
+    int n, c, f, g;
+    int rc = std::sscanf(s.c_str(), "N=%d C=%d min=%d max=%d all=", &n, &c, &f, &g);
+    assert(rc == 4 || !"input file contained malformed lines");
+
+    std::ostringstream oss;
+    oss << "N=" << (n+1) << " C=" << c << " min=" << f << " max=" << g << " all=0+0\n";
+
+    const char *p = strchr(s.c_str(), '\n');
+    assert(p != nullptr);
+    ++p;
+    for (int i=0; i < n; ++i) {
+        oss << std::string(p, n) << std::string(by, '.') << "\n";
+        p += n;
+        assert(*p == '\n');
+        ++p;
+    }
+    for (int i=0; i < by; ++i) {
+        oss << std::string(n+by, '.') << "\n";
+    }
+    s = oss.str();
+    puts(s.c_str());
+    return s;
+}
+
 void maybe_read_solutions_from_file(const char *filename, std::map<NC, std::shared_ptr<A250000_Base>>& m)
 {
     std::ifstream infile(filename);
@@ -733,6 +788,21 @@ void maybe_read_solutions_from_file(const char *filename, std::map<NC, std::shar
             seen_a_grid = true;
         } else if (seen_a_grid && line != "") {
             assert(!"input file contained malformed lines after the first grid");
+        }
+    }
+
+    for (int c=2; true; ++c) {
+        bool found_something = false;
+        for (int n=c; n < 100; ++n) {
+            auto it1 = m.find(NC{n, c});
+            auto it2 = m.find(NC{n+1, c});
+            if (it1 != m.end() && it2 != m.end()) {
+                 it2->second->parseSmallerBestString(expandSolution(1, it1->second->getBestString()));
+            }
+            found_something = true;
+        }
+        if (!found_something) {
+            break;
         }
     }
 }
