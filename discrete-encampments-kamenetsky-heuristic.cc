@@ -506,6 +506,30 @@ private:
                 break;
             }
         }
+        fillUncontestedCells(a, s);
+    }
+
+    template<class StructuredScore>
+    static void fillUncontestedCells(Board<int>& a, StructuredScore& s)
+    {
+        auto sole_valid_color = [&](int r, int c) {
+            // Find the unique color that can go here.
+            int result = 0;
+            for (int k=1; k <= C; ++k) {
+                if (s.counts[k][r][c] == 0) continue;
+                if (result != 0) return 0;
+                result = k;
+            }
+            return (result != 0) ? result : 1;
+        };
+
+        for (int r=0; r < N; ++r) {
+            for (int c=0; c < N; ++c) {
+                if (a[r][c] != 0) continue;
+                bool changed = false;
+                maybeAdjust(a, s, changed, r, c, sole_valid_color(r, c));
+            }
+        }
     }
 
     template<class StructuredScore>
@@ -592,6 +616,7 @@ private:
     void do_parseBestString(const std::string& bestString) override {
         Board<int> a = prettyUnprint(bestString);
         auto s = StructuredScore<ScoreType_Primary>::from_board(a);
+        fillUncontestedCells(a, s);
         bestA[0] = a;
         bestScores_[0] = s.score;
 
