@@ -43,9 +43,9 @@ static constexpr int MIN_N = 14;
 static constexpr int MAX_N = 30;
 static const char FILENAME[] = "dek-out.txt";
 
-enum ScoreType { Extra = 0, Max = 1, Sorted = 2 };
-struct ScoreType_Primary { static constexpr int value = ScoreType::Sorted; };
-struct ScoreType_Secondary { static constexpr int value = ScoreType::Sorted; };
+enum ScoreType { Extra = 0, Max = 1, Sorted = 2, SortedCompressed = 3 };
+struct ScoreType_Primary { static constexpr int value = ScoreType::SortedCompressed; };
+struct ScoreType_Secondary { static constexpr int value = ScoreType::SortedCompressed; };
 
 struct Util {
     static char to_digit(int i) {
@@ -246,6 +246,59 @@ private:
     }
 };
 
+        static int utf_compress(const int *first, const int *last)
+        {
+            // Encode the array into the LEADING bits of the int.
+            // Encode a delta of:
+            // 0       ==> 0
+            // 1       ==> 10
+            // 2-5     ==> 1100'0 + (d-2)
+            // 6-69    ==> 1110'0000'00 + (d-6)
+            // 70-1093 ==> 1111'0000'0000'00 + (d-70)
+            // For example, {0,1,2} encodes as (0)(10)(1000),
+            // or as a 31-bit int, 0b0'10'1000'00000000'00000000'00000000.
+            // Things that don't fit into 31 bits, we can truncate (ick!).
+
+            long long score = 0;
+            int bits = 0;
+            for (const int *it = first; it != last; ++it) {
+                int d = *it;
+                assert(d >= 0);
+                if (d == 0) {
+                    score = (score << 1) + 0;
+                    bits += 1;
+                } else if (d == 1) {
+                    score = (score << 2) + 2;
+                    bits += 2;
+                } else if (d < 6) {
+                    score = (score << 5) + 0x18 + (d - 2);
+                    bits += 5;
+                } else if (d < 70) {
+                    score = (score << 10) + 0x380 + (d - 6);
+                    bits += 10;
+                } else if (d < 1093) {
+                    score = (score << 14) + 0x3c00 + (d - 70);
+                    bits += 14;
+                } else {
+                    printf("Oops! d=%d\n", d);
+                    score = (score << 5) + 0x1f;
+                    bits += 5;
+                }
+            }
+            if (bits > 63) {
+                printf("Oops! bits=%d\n", bits);
+                for (const int *it = first; it != last; ++it) {
+                    printf(" %d", *it);
+                }
+                printf("\n");
+            }
+            assert(bits <= 63);
+            score <<= (63 - bits);
+            score >>= 32;
+            assert(score >= 0);
+            return score;
+        }
+
 template<int N, int C, bool Interesting = (2 <= C && C < N)>
 class A250000 : public A250000_Base {
     static constexpr int Q = 16;
@@ -348,7 +401,23 @@ private:
             }
             assert(1 <= extra && extra <= C);
 
-            if (ST::value == ScoreType::Sorted) {
+            if (ST::value == ScoreType::SortedCompressed) {
+                int sorted_queens[C];
+                for (int k = 1; k <= C; ++k) {
+                    sorted_queens[k-1] = queens[k] - bad;
+                }
+                std::sort(sorted_queens, sorted_queens+C);
+                if (sorted_queens[0] < 0) {
+                    score = 0;
+                } else {
+                    // Delta-compress the array.
+                    for (int k = C-1; k > 0; --k) {
+                        assert(sorted_queens[k] >= sorted_queens[k-1]);
+                        sorted_queens[k] -= sorted_queens[k-1];
+                    }
+                    score = utf_compress(sorted_queens, sorted_queens+C);
+                }
+            } else if (ST::value == ScoreType::Sorted) {
                 int sorted_queens[C+1];
                 memcpy(sorted_queens, queens, (C+1) * sizeof(int));
                 std::sort(sorted_queens+1, sorted_queens+C+1);
