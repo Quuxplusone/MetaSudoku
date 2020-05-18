@@ -44,9 +44,8 @@ static constexpr int MAX_N = 30;
 static const char FILENAME[] = "dek-out.txt";
 
 enum ScoreType { Extra = 0, Max = 1, Sorted = 2 };
-struct ScoreType_Extra { static constexpr int value = ScoreType::Extra; };
-struct ScoreType_Max { static constexpr int value = ScoreType::Max; };
-struct ScoreType_Sorted { static constexpr int value = ScoreType::Sorted; };
+struct ScoreType_Primary { static constexpr int value = ScoreType::Sorted; };
+struct ScoreType_Secondary { static constexpr int value = ScoreType::Sorted; };
 
 struct Util {
     static char to_digit(int i) {
@@ -445,7 +444,7 @@ private:
 
             // Then, jiggle the solution until it cannot be improved by ANY single edit.
             if (q < Q) {
-                auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
+                auto s = StructuredScore<ScoreType_Primary>::from_board(a);
                 optimizeChangesFast(a, s);
 
                 if (s.score >= bestScores_[q]) {
@@ -470,7 +469,7 @@ private:
                     }
                 }
             } else {
-                auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
+                auto s = StructuredScore<ScoreType_Secondary>::from_board(a);
                 optimizeChangesFast(a, s);
 
                 if (s.score >= bestScores_[q]) {
@@ -600,11 +599,11 @@ private:
 
     void do_parseBestString(const std::string& bestString) override {
         Board<int> a = prettyUnprint(bestString);
-        auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
+        auto s = StructuredScore<ScoreType_Primary>::from_board(a);
         bestA[0] = a;
         bestScores_[0] = s.score;
 
-        auto sm = StructuredScore<ScoreType_Sorted>::from_board(a);
+        auto sm = StructuredScore<ScoreType_Secondary>::from_board(a);
         bestA[Q] = a;
         bestScores_[Q] = sm.score;
         bestScore_ = sm.score;
@@ -616,11 +615,11 @@ private:
 
     void do_parseSmallerBestString(const std::string& bestString) override {
         Board<int> a = prettyUnprint(bestString);
-        auto s = StructuredScore<ScoreType_Sorted>::from_board(a);
+        auto s = StructuredScore<ScoreType_Primary>::from_board(a);
         bestA[1] = a;
         bestScores_[1] = s.score;
 
-        auto sm = StructuredScore<ScoreType_Sorted>::from_board(a);
+        auto sm = StructuredScore<ScoreType_Secondary>::from_board(a);
         bestA[Q+1] = a;
         bestScores_[Q+1] = sm.score;
 
