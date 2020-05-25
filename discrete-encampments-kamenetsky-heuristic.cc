@@ -935,6 +935,8 @@ int main()
     auto start_time = std::chrono::high_resolution_clock::now();
     printf("done setup in %zu ms\n", in_ms(start_time - prestart_time));
 
+    write_solutions_to_file(FILENAME, to_output);
+
     for (int iteration = 1; true; ++iteration) {
         for (auto&& p : to_update) {
             for (int i=0; i < 8; ++i) {
